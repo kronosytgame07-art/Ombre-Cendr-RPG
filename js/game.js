@@ -14,6 +14,39 @@ import { getDifficultyMult } from './engine/difficulty.js';
 const PLAYER_RADIUS = 16;
 const PORTAL_TRIGGER_DIST = 70;
 
+// Hash entier déterministe par case : donne à chaque tuile un variant de
+// texture stable (pas de scintillement d'une frame à l'autre) et permet de
+// semer des petits détails de décor (cailloux, touffes...) sans les stocker.
+function cellHash(x,y){
+  let h = (x*374761393 + y*668265263) ^ 0x9e3779b9;
+  h = Math.imul(h ^ (h>>>13), 1274126177);
+  return (h ^ (h>>>16)) >>> 0;
+}
+function tileVariantIndex(x,y){ return cellHash(x,y) % 4; }
+function decorAt(x,y){
+  const h = cellHash(x*7+3, y*13+5);
+  if(h % 100 >= 9) return null; // ~9% des cases praticables reçoivent un détail
+  return h % 3; // 3 styles de détail
+}
+function drawFloorDecor(ctx, px, py, style){
+  ctx.save();
+  ctx.translate(px+TILE_SIZE*0.5, py+TILE_SIZE*0.6);
+  ctx.globalAlpha = 0.55;
+  if(style===0){
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.beginPath(); ctx.ellipse(0,0,5,3,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    ctx.beginPath(); ctx.ellipse(-1,-1,2,1.2,0,0,Math.PI*2); ctx.fill();
+  } else if(style===1){
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(-5,3); ctx.lineTo(-1,-3); ctx.lineTo(4,2); ctx.stroke();
+  } else {
+    ctx.fillStyle = 'rgba(120,140,90,0.35)';
+    ctx.beginPath(); ctx.moveTo(0,4); ctx.lineTo(-2,-3); ctx.lineTo(0,-1); ctx.lineTo(2,-3); ctx.lineTo(0,4); ctx.fill();
+  }
+  ctx.restore();
+}
+
 export class Game{
   constructor(canvas, player){
     this.canvas = canvas;
@@ -29,7 +62,7 @@ export class Game{
     this.floatingTexts = [];
     this.pendingLevelEvents = [];
     this.pendingNotices = [];
-    this.camera = {x:0, y:0, zoom:2};
+    this.camera = {x:0, y:0, zoom:2.3};
     this.map = null;
     this.zone = null;
     this.bossActive = null;
@@ -77,9 +110,9 @@ export class Game{
       this.pickups.push(createPickup('chest', (c.x+0.5)*TILE_SIZE, (c.y+0.5)*TILE_SIZE, {opened:false, zoneLevel:lvl}));
     }
     this.tileCache = {
-      floor: makeTile(zone.floorTile, 0),
-      wall: makeTile(zone.wallTile, 1),
-      accent: makeTile(zone.accentTile, 2),
+      floor: [0,1,2,3].map(i=>makeTile(zone.floorTile, i)),
+      wall: [0,1,2].map(i=>makeTile(zone.wallTile, 10+i)),
+      accent: makeTile(zone.accentTile, 20),
     };
     this.notify(zone.name);
   }
@@ -117,6 +150,8 @@ export class Game{
     const player = this.player;
 
     for(const k in player.cooldowns){ if(player.cooldowns[k]>0) player.cooldowns[k] = Math.max(0, player.cooldowns[k]-dt); }
+    if(player.action){ player.action.t += dt; if(player.action.t >= player.action.duration) player.action = null; }
+    for(const e of this.enemies){ if(e.action){ e.action.t += dt; if(e.action.t >= e.action.duration) e.action = null; } }
     for(let i=player.buffs.length-1;i>=0;i--){ player.buffs[i].remaining -= dt; if(player.buffs[i].remaining<=0) player.buffs.splice(i,1); }
     if(player.resource < player.stats.maxResource){
       player.resource = Math.min(player.stats.maxResource, player.resource + player.stats.maxResource*0.05*(1+player.stats.resourceRegenPct/100)*dt);
@@ -385,8 +420,13 @@ export class Game{
     for(let y=y0;y<y1;y++){
       for(let x=x0;x<x1;x++){
         const walkable = isWalkable(this.map, x, y);
-        const tile = walkable ? this.tileCache.floor : this.tileCache.wall;
-        ctx.drawImage(tile, x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        const variants = walkable ? this.tileCache.floor : this.tileCache.wall;
+        const idx = tileVariantIndex(x,y) % variants.length;
+        ctx.drawImage(variants[idx], x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        if(walkable){
+          const decor = decorAt(x,y);
+          if(decor!=null) drawFloorDecor(ctx, x*TILE_SIZE, y*TILE_SIZE, decor);
+        }
       }
     }
 
@@ -428,35 +468,48 @@ export class Game{
 
   drawPlayer(ctx){
     const p = this.player;
-    const img = playerSpriteCanvas(p);
-    const w=44,h=56;
+    const w=56,h=70;
+    const walk = p.moving ? Math.sin(this.time*9) : 0;
+    const action = p.action ? {kind:p.action.kind, phase:Math.min(1,p.action.t/p.action.duration)} : null;
+    const img = playerSpriteCanvas(p, {walk, action});
     ctx.save();
     ctx.translate(p.pos.x, p.pos.y);
-    const bob = p.moving ? Math.sin(this.time*10)*2 : 0;
     if(p.facing.x < -0.1) ctx.scale(-1,1);
     let alpha = 1;
     for(const b of p.buffs) if(b.effect && b.effect.invisible) alpha = 0.35;
     ctx.globalAlpha = alpha;
-    ctx.drawImage(img, -w/2, -h+10+bob, w, h);
+    ctx.drawImage(img, -w/2, -h+12, w, h);
     ctx.restore();
+    ctx.globalAlpha = 1;
     if(p.hp <= 0){ /* mort gérée par overlay UI */ }
   }
 
   drawEnemy(ctx, e){
     const def = e.isBoss ? null : e.def;
-    const img = e.isBoss ? bossSpriteCanvas(e.defId) : enemySpriteCanvas(def);
-    const w = e.isBoss ? 112 : (def.sprite.kind==='humanoid'?44:52);
-    const h = e.isBoss ? 112 : (def.sprite.kind==='humanoid'?56:44);
+    const isHumanoid = !e.isBoss && def.sprite.kind==='humanoid';
+    let img, w, h, bob=0;
+    if(e.isBoss){
+      img = bossSpriteCanvas(e.defId); w=136; h=136;
+      bob = Math.sin(this.time*3 + e.uid)*3;
+    } else if(isHumanoid){
+      const walk = (e.state==='chase') ? Math.sin(this.time*8+e.uid) : 0;
+      const action = e.action ? {kind:e.action.kind, phase:Math.min(1,e.action.t/e.action.duration)} : null;
+      img = enemySpriteCanvas(def, {walk, action});
+      w=56; h=70;
+    } else {
+      img = enemySpriteCanvas(def); w=64; h=54;
+      bob = Math.sin(this.time*6 + e.uid) * (e.state==='chase'?3:1.4);
+    }
     ctx.save();
-    ctx.translate(e.pos.x, e.pos.y);
+    ctx.translate(e.pos.x, e.pos.y+bob);
     if(e.facing.x < -0.1) ctx.scale(-1,1);
     let alpha = e.dead ? Math.max(0, e.deathTimer/0.6) : 1;
     ctx.globalAlpha = alpha;
-    ctx.drawImage(img, -w/2, -h+10, w, h);
+    ctx.drawImage(img, -w/2, -h+12, w, h);
     if(e.hitFlash>0){
       ctx.globalCompositeOperation='lighter';
       ctx.globalAlpha = e.hitFlash*2;
-      ctx.drawImage(img, -w/2, -h+10, w, h);
+      ctx.drawImage(img, -w/2, -h+12, w, h);
       ctx.globalCompositeOperation='source-over';
       e.hitFlash -= 1/60;
     }

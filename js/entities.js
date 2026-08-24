@@ -3,7 +3,7 @@ import { recomputeStats, grantXp } from './systems/leveling.js';
 import { xpToNextLevel, INVENTORY_SIZE } from './engine/config.js';
 import { ENEMY_TYPES, BOSSES, scaledEnemyStats } from './data/enemies.js';
 import { drawHumanoid, drawCreature, drawBoss, shade } from './engine/sprites.js';
-import { getImageSync } from './engine/assets.js';
+import { generateItem } from './data/items.js';
 
 let uidCounter = 1;
 function nextUid(){ return uidCounter++; }
@@ -14,7 +14,7 @@ export function createPlayer(classId, name){
     name: name || cls.name,
     classId,
     level: 1, xp: 0, xpToNext: xpToNextLevel(1),
-    attributePoints: 0, skillPoints: 1,
+    attributePoints: 0, skillPoints: 0,
     attributes:{force:0, dexterite:0, intelligence:0, vitalite:0},
     skills:{['core_'+classId]:1},
     equipment:{arme:null, bouclier:null, casque:null, plastron:null, gants:null, bottes:null, ceinture:null, anneau1:null, anneau2:null, amulette:null},
@@ -24,37 +24,48 @@ export function createPlayer(classId, name){
     hp:null, resource:null,
     pos:{x:0, y:0}, facing:{x:0, y:1}, moving:false,
     currentZone:'refuge', unlockedZones:['refuge','cimetiere'], defeatedBosses:[], clearedOnce:{},
-    cooldowns:{}, buffs:[],
+    cooldowns:{}, buffs:[], action:null,
     hotbar: [null, cls.branches[0]+'_t1', cls.branches[1]+'_t1', cls.branches[2]+'_t1', null],
     codex:{bestiary:[], lore:['embrasement']},
     playtime:0,
   };
+  player.equipment.arme = generateItem({baseType: cls.weapon, itemLevel:1, rarity:'commun'});
+  if(cls.armorStyle==='lourd'){
+    player.equipment.bouclier = generateItem({baseType:'bouclier', itemLevel:1, rarity:'commun'});
+    player.equipment.casque = generateItem({baseType:'casque', itemLevel:1, rarity:'commun'});
+  }
   recomputeStats(player);
   player.hp = player.stats.maxHp;
   player.resource = player.stats.maxResource;
   return player;
 }
 
-export function playerSpriteCanvas(player){
-  const img = getImageSync(getClass(player.classId).sprite);
-  if(img) return img;
+// Rendu procédural en temps réel : reflète l'équipement (arme/bouclier/casque
+// modulables — vides si déséquipés) et la pose du moment (marche, coup,
+// incantation). Volontairement non mis en cache : la pose change en continu.
+export function playerSpriteCanvas(player, pose){
   const cls = getClass(player.classId);
+  const weaponItem = player.equipment.arme;
+  const weaponType = weaponItem ? weaponItem.weaponClass : 'none';
   return drawHumanoid({
-    w:44, h:56, skin:cls.palette.skin, cloth:cls.palette.cloth, accent:cls.palette.accent,
-    trim:cls.palette.trim, hair:cls.palette.hair, weapon:cls.weapon, hood:cls.hood, cloak:cls.cloak,
-    armor:cls.armorStyle,
+    w:56, h:70, skin:cls.palette.skin, cloth:cls.palette.cloth, accent:cls.palette.accent,
+    trim:cls.palette.trim, hair:cls.palette.hair, weapon:weaponType,
+    hood: cls.hood && !player.equipment.casque, cloak:cls.cloak, armor:cls.armorStyle,
+    shield: !!player.equipment.bouclier, helmet: !!player.equipment.casque,
+    pose,
   });
 }
 
 const enemySpriteCache = new Map();
-export function enemySpriteCanvas(def){
-  if(enemySpriteCache.has(def.id)) return enemySpriteCache.get(def.id);
-  let canvas;
+// Les humanoïdes sont redessinés à chaque frame avec leur pose (marche/coup)
+// pour une vraie animation ; les créatures restent en cache (silhouette figée,
+// un léger mouvement est appliqué au moment du rendu par le jeu).
+export function enemySpriteCanvas(def, pose){
   if(def.sprite.kind === 'humanoid'){
-    canvas = drawHumanoid({w:44, h:56, ...spriteHumanoidOpts(def.sprite)});
-  } else {
-    canvas = drawCreature({w:52, h:44, shape:def.sprite.shape, main:def.sprite.main, eye:def.sprite.eye});
+    return drawHumanoid({w:56, h:70, ...spriteHumanoidOpts(def.sprite), pose});
   }
+  if(enemySpriteCache.has(def.id)) return enemySpriteCache.get(def.id);
+  const canvas = drawCreature({w:64, h:54, shape:def.sprite.shape, main:def.sprite.main, eye:def.sprite.eye});
   enemySpriteCache.set(def.id, canvas);
   return canvas;
 }
