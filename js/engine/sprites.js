@@ -40,12 +40,20 @@ export function shade(hex, amt){
 }
 
 // ============ HUMANOÏDE (héros / cultistes / mort-vivants / gardiens) ============
+// `pose` permet l'animation procédurale en temps réel (pas de sprite-sheet) :
+//   pose.walk   : -1..1, phase de marche (cycle de jambes/bras/tête)
+//   pose.action : {kind:'swing'|'cast', phase:0..1} pour une attaque ou un sort en cours
+// `shield`/`helmet` reflètent l'équipement réel du joueur (modulable).
+function easeOutQuad(t){ return 1-(1-t)*(1-t); }
+
 export function drawHumanoid(opts){
   const {
     w=44, h=56, skin='#d8b48a', cloth='#3a3230', accent='#8a1f1f', trim='#d8b45a',
     weapon='epee', hood=false, cloak=false, armor='leger', undead=false, robed=false,
-    outline='#0c0a09', hair='#2b1c14', big=false
+    outline='#0c0a09', hair='#2b1c14', shield=false, helmet=false, pose=null
   } = opts;
+  const walk = pose && pose.walk || 0;
+  const action = pose && pose.action || null;
   const {canvas, ctx} = newCanvas(w,h);
   const cx = w/2;
   const skinC = undead ? shade(skin,-60) : skin;
@@ -57,11 +65,12 @@ export function drawHumanoid(opts){
   ctx.beginPath(); ctx.ellipse(cx, h-4, w*0.28, h*0.07, 0,0,Math.PI*2); ctx.fill();
 
   const legY = h*0.62;
-  // jambes
-  px(ctx, cx-w*0.16, legY, w*0.12, h*0.30, clothD);
-  px(ctx, cx+w*0.04, legY, w*0.12, h*0.30, clothD);
-  px(ctx, cx-w*0.16, h*0.90, w*0.12, h*0.08, outline);
-  px(ctx, cx+w*0.04, h*0.90, w*0.12, h*0.08, outline);
+  const legSwing = walk*h*0.05;
+  // jambes (alternées pendant la marche)
+  px(ctx, cx-w*0.16, legY+legSwing, w*0.12, h*0.30, clothD);
+  px(ctx, cx+w*0.04, legY-legSwing, w*0.12, h*0.30, clothD);
+  px(ctx, cx-w*0.16, h*0.90+legSwing, w*0.12, h*0.08, outline);
+  px(ctx, cx+w*0.04, h*0.90-legSwing, w*0.12, h*0.08, outline);
 
   // cape
   if(cloak){
@@ -84,17 +93,31 @@ export function drawHumanoid(opts){
   }
   px(ctx, cx-w*0.20, torsoTop+h*0.24, w*0.40, h*0.06, accent); // ceinture
 
-  // bras
   const armY = torsoTop+h*0.02;
-  px(ctx, cx-w*0.32, armY, w*0.12, h*0.24, cloth);
-  px(ctx, cx+w*0.20, armY, w*0.12, h*0.24, cloth);
-  px(ctx, cx-w*0.32, armY+h*0.20, w*0.12, w*0.12, skinC);
-  px(ctx, cx+w*0.20, armY+h*0.20, w*0.12, w*0.12, skinC);
+  const armLen = h*0.24, armW = w*0.12;
 
-  // tête
-  const headY = h*0.08, headR = w*0.18;
+  // bras gauche (bouclier ou contrepoids) — pivote au repos/marche, et pendant un sort
+  let leftAngle = -0.12 - walk*0.22;
+  if(action && action.kind==='cast') leftAngle = lerp(leftAngle, -1.05, easeOutQuad(action.phase));
+  drawArm(ctx, cx-w*0.26, armY, armLen, armW, leftAngle, cloth, skinC, shield ? drawShieldAt : null);
+
+  // bras droit (arme) — angle de repos, marche, coup ou sort
+  let rightAngle = 0.14 + walk*0.22;
+  if(action && action.kind==='swing') rightAngle = lerp(-1.0, 1.25, easeOutQuad(action.phase));
+  else if(action && action.kind==='cast') rightAngle = lerp(rightAngle, -1.25, easeOutQuad(action.phase));
+  drawArm(ctx, cx+w*0.26, armY, armLen, armW, rightAngle, cloth, skinC, drawWeaponAt);
+
+  // tête (légère oscillation avec la marche)
+  const headBob = Math.abs(walk)*h*0.015;
+  const headY = h*0.08+headBob, headR = w*0.18;
   circle(ctx, cx, headY+headR, headR, skinC);
-  if(!hood){
+  if(helmet){
+    const steel = '#8b93a0', steelD = '#565d68';
+    ctx.fillStyle = steel;
+    ctx.beginPath(); ctx.arc(cx, headY+headR*0.75, headR*0.98, Math.PI, 0); ctx.fill();
+    px(ctx, cx-headR*0.98, headY+headR*0.62, headR*1.96, headR*0.32, steelD);
+    px(ctx, cx-headR*0.12, headY+headR*1.0, headR*0.24, headR*0.5, steelD);
+  } else if(!hood){
     // cheveux / crâne
     ctx.fillStyle = undead ? '#5a5048' : hair;
     ctx.beginPath(); ctx.ellipse(cx, headY+headR*0.7, headR*0.95, headR*0.65, 0, Math.PI, 0); ctx.fill();
@@ -105,43 +128,77 @@ export function drawHumanoid(opts){
     circle(ctx, cx, headY+headR, headR*0.85, '#0b0908');
   }
   // yeux
-  ctx.fillStyle = undead ? '#8fe0ff' : '#141010';
-  px(ctx, cx-headR*0.5, headY+headR*0.9, headR*0.28, headR*0.16, ctx.fillStyle);
-  px(ctx, cx+headR*0.2, headY+headR*0.9, headR*0.28, headR*0.16, ctx.fillStyle);
-
-  // arme
-  const hx = cx+w*0.30, hy = armY+h*0.22;
-  ctx.strokeStyle = outline; ctx.lineWidth=1;
-  switch(weapon){
-    case 'epee':
-      px(ctx, hx-1, hy-h*0.32, 3, h*0.34, '#cfd6dc');
-      px(ctx, hx-4, hy-h*0.04, 9, 3, trim);
-      break;
-    case 'hache':
-      px(ctx, hx-1, hy-h*0.30, 3, h*0.32, '#7a5230');
-      ctx.fillStyle='#cfd6dc';
-      ctx.beginPath(); ctx.moveTo(hx+1,hy-h*0.30); ctx.lineTo(hx+w*0.18,hy-h*0.22); ctx.lineTo(hx+1,hy-h*0.14); ctx.closePath(); ctx.fill();
-      break;
-    case 'dague':
-      px(ctx, hx-1, hy-h*0.16, 2, h*0.18, '#cfd6dc');
-      break;
-    case 'arc':
-      ctx.strokeStyle = '#7a5230'; ctx.lineWidth=2;
-      ctx.beginPath(); ctx.arc(hx+3, hy-h*0.12, h*0.20, Math.PI*0.6, Math.PI*1.4); ctx.stroke();
-      break;
-    case 'baton':
-      px(ctx, hx, hy-h*0.36, 2, h*0.40, '#5a3d22');
-      circle(ctx, hx+1, hy-h*0.36, 4, accent);
-      break;
-    case 'sceptre':
-      px(ctx, hx, hy-h*0.30, 2, h*0.32, '#8a6d3a');
-      circle(ctx, hx+1, hy-h*0.32, 3.5, trim);
-      break;
-    default: break;
+  if(!helmet){
+    ctx.fillStyle = undead ? '#8fe0ff' : '#141010';
+    px(ctx, cx-headR*0.5, headY+headR*0.9, headR*0.28, headR*0.16, ctx.fillStyle);
+    px(ctx, cx+headR*0.2, headY+headR*0.9, headR*0.28, headR*0.16, ctx.fillStyle);
+  } else {
+    ctx.fillStyle = '#8fe0ff';
+    px(ctx, cx-headR*0.45, headY+headR*0.85, headR*0.9, headR*0.18, ctx.fillStyle);
   }
+
   ctx.restore();
   return canvas;
+
+  // --- arme/bouclier attachés à la main, dessinés dans le même repère pivoté
+  // que le bras : même point d'ancrage et même échelle quel que soit l'objet
+  // équipé, pour qu'il se cale toujours pareil dans la main. ---
+  function drawArm(c, px0, py0, len, width, angle, sleeveColor, handColor, accessory){
+    c.save();
+    c.translate(px0, py0);
+    c.rotate(angle);
+    c.fillStyle = sleeveColor;
+    c.fillRect(-width/2, 0, width, len);
+    c.fillStyle = handColor;
+    c.beginPath(); c.arc(0, len, width*0.55, 0, Math.PI*2); c.fill();
+    if(accessory) accessory(c, 0, len, width);
+    c.restore();
+  }
+  function drawShieldAt(c, hx, hy){
+    c.fillStyle = trim; c.strokeStyle = outline; c.lineWidth=1;
+    const sw = w*0.20, sh = h*0.30;
+    c.beginPath();
+    c.moveTo(hx-sw*0.5, hy-sh*0.38);
+    c.lineTo(hx+sw*0.5, hy-sh*0.38);
+    c.lineTo(hx+sw*0.5, hy+sh*0.18);
+    c.lineTo(hx, hy+sh*0.5);
+    c.lineTo(hx-sw*0.5, hy+sh*0.18);
+    c.closePath(); c.fill(); c.stroke();
+    c.fillStyle = shade(trim,-25);
+    c.fillRect(hx-1.5, hy-sh*0.28, 3, sh*0.6);
+  }
+  function drawWeaponAt(c, hx, hy, aw){
+    c.strokeStyle = outline; c.lineWidth=1;
+    switch(weapon){
+      case 'epee':
+        px(c, hx-1, hy-h*0.32, 3, h*0.34, '#cfd6dc');
+        px(c, hx-4, hy-h*0.04, 9, 3, trim);
+        break;
+      case 'hache':
+        px(c, hx-1, hy-h*0.30, 3, h*0.32, '#7a5230');
+        c.fillStyle='#cfd6dc';
+        c.beginPath(); c.moveTo(hx+1,hy-h*0.30); c.lineTo(hx+w*0.18,hy-h*0.22); c.lineTo(hx+1,hy-h*0.14); c.closePath(); c.fill();
+        break;
+      case 'dague':
+        px(c, hx-1, hy-h*0.16, 2, h*0.18, '#cfd6dc');
+        break;
+      case 'arc':
+        c.strokeStyle = '#7a5230'; c.lineWidth=2;
+        c.beginPath(); c.arc(hx+3, hy-h*0.12, h*0.20, Math.PI*0.6, Math.PI*1.4); c.stroke();
+        break;
+      case 'baton':
+        px(c, hx, hy-h*0.36, 2, h*0.40, '#5a3d22');
+        circle(c, hx+1, hy-h*0.36, 4, accent);
+        break;
+      case 'sceptre':
+        px(c, hx, hy-h*0.30, 2, h*0.32, '#8a6d3a');
+        circle(c, hx+1, hy-h*0.32, 3.5, trim);
+        break;
+      default: break;
+    }
+  }
 }
+function lerp(a,b,t){ return a+(b-a)*t; }
 
 // ============ CREATURES (bêtes, morts-vivants, monstres) ============
 export function drawCreature(opts){
@@ -234,7 +291,7 @@ export function drawBoss(id, opts){
   if(cache.has(key)) return cache.get(key);
   const seed = hashStr(id);
   const rnd = seededRand(seed);
-  const w=112,h=112;
+  const w=136,h=136;
   const {canvas, ctx} = newCanvas(w,h);
   const cx=w/2, cy=h/2;
   const hue = Math.floor(rnd()*360);
@@ -354,7 +411,7 @@ export function drawItemIcon(kind, colorMain='#c9c9c9', rarityColor='#888'){
 export function makeTile(kind, variant=0){
   const key = 'tile_'+kind+'_'+variant;
   if(cache.has(key)) return cache.get(key);
-  const size=32;
+  const size=48;
   const {canvas,ctx}=newCanvas(size,size);
   const rnd = seededRand(hashStr(kind+variant));
   const palettes = {
@@ -376,20 +433,49 @@ export function makeTile(kind, variant=0){
   };
   const pal = palettes[kind] || palettes.ash_ground;
   ctx.fillStyle = pal[0]; ctx.fillRect(0,0,size,size);
-  for(let i=0;i<40;i++){
+
+  // grain fin
+  for(let i=0;i<110;i++){
     const x=Math.floor(rnd()*size), y=Math.floor(rnd()*size);
     ctx.fillStyle = pal[1+Math.floor(rnd()*(pal.length-1))] || pal[1];
     ctx.fillRect(x,y, 1+Math.floor(rnd()*2), 1+Math.floor(rnd()*2));
   }
+  // taches plus larges (mousse, éclats, flaques) pour casser la répétition
+  const blotchCount = 2+Math.floor(rnd()*3);
+  for(let i=0;i<blotchCount;i++){
+    const x=rnd()*size, y=rnd()*size, r=3+rnd()*6;
+    ctx.globalAlpha = 0.35+rnd()*0.25;
+    ctx.fillStyle = rnd()<0.5 ? shade(pal[1],-10) : shade(pal[2]||pal[1], 10);
+    ctx.beginPath(); ctx.ellipse(x,y,r,r*(0.6+rnd()*0.4),rnd()*Math.PI,0,Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  // craquelures fines (sol sec/pierre/cendre)
+  if(['ash_ground','cendre_route','pierre','caverne','sable','faille'].includes(kind) && rnd()<0.6){
+    ctx.strokeStyle = shade(pal[0],-12); ctx.lineWidth=1; ctx.globalAlpha=0.5;
+    let x=rnd()*size, y=rnd()*size;
+    ctx.beginPath(); ctx.moveTo(x,y);
+    const segs = 2+Math.floor(rnd()*3);
+    for(let i=0;i<segs;i++){ x+=(rnd()-0.5)*14; y+=(rnd()-0.5)*14; ctx.lineTo(x,y); }
+    ctx.stroke(); ctx.globalAlpha=1;
+  }
   if(kind==='eau' || kind==='lave' || kind==='marais'){
     ctx.globalAlpha=0.3;
     ctx.fillStyle= kind==='lave' ? '#ffb347' : '#ffffff';
-    for(let i=0;i<3;i++){
+    for(let i=0;i<4;i++){
       const x=Math.floor(rnd()*size), y=Math.floor(rnd()*size);
-      ctx.fillRect(x,y,3,1);
+      ctx.fillRect(x,y,4,1);
     }
     ctx.globalAlpha=1;
   }
+  if(kind==='neige' && rnd()<0.7){
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    for(let i=0;i<3;i++) ctx.fillRect(rnd()*size, rnd()*size, 2, 2);
+  }
+  // léger assombrissement des bords pour masquer les coutures de répétition
+  const vg = ctx.createRadialGradient(size/2,size/2,size*0.3,size/2,size/2,size*0.72);
+  vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,0.18)');
+  ctx.fillStyle = vg; ctx.fillRect(0,0,size,size);
+
   cache.set(key, canvas);
   return canvas;
 }

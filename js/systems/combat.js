@@ -33,6 +33,15 @@ export const SKILL_IMPL = {
   bond_predateur: {type:'dash_melee', dashDist:150, dmgMult:1.35, dmgType:'physique'},
 };
 
+// Type d'animation jouée par le joueur selon la nature de la compétence :
+// un coup d'arme au corps-à-corps balance le bras, un sort/tir lève les
+// mains en position d'incantation/visée.
+const ACTION_ANIM_KIND = {
+  melee_cone: 'swing', dash_melee: 'swing',
+  projectile: 'cast', projectile_chain: 'cast', aoe_self: 'cast',
+  buff_self: 'cast', trap: 'cast', summon: 'cast', teleport_behind: 'swing',
+};
+
 const CAPSTONE_UPGRADES = {
   rage_braises_t5: {target:'frappe_ardente', patch:{aoeOnHit:70}},
   rempart_cendre_t5: {target:'bouclier_cendre', patch:{reflectPct:30}},
@@ -113,6 +122,7 @@ export function castSkill(game, skillId, aimX, aimY){
 
   const ang = angleTo(player.pos, {x:aimX, y:aimY});
   player.facing = {x:Math.cos(ang), y:Math.sin(ang)};
+  player.action = {kind: ACTION_ANIM_KIND[impl.type] || 'swing', t:0, duration: ACTION_ANIM_KIND[impl.type]==='cast' ? 0.34 : 0.24};
 
   switch(impl.type){
     case 'melee_cone': {
@@ -384,8 +394,10 @@ function performEnemyAttack(game, enemy){
       x:enemy.pos.x, y:enemy.pos.y, vx:Math.cos(a)*speed, vy:Math.sin(a)*speed,
       dmgMin:dmg, dmgMax:dmg, radius:8, fromPlayer:false, color: enemy.isBoss?'#ff2b6a':'#b34dff',
     }));
+    enemy.action = {kind:'cast', t:0, duration:0.3};
   } else {
     applyEnemyHitOnPlayer(game, enemy);
+    enemy.action = {kind:'swing', t:0, duration:0.24};
   }
 }
 
