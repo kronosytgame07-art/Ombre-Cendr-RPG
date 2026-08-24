@@ -141,12 +141,15 @@ export function generateZoneMap(zone, seed){
     }
   }
 
-  // point de spawn : première case praticable proche du bord gauche
-  let spawn = null;
-  for(let x=1;x<w-1 && !spawn;x++){
-    for(let y=1;y<h-1;y++){
-      if(grid[y][x]===FLOOR){ spawn=[x,y]; break; }
-    }
+  // point de spawn : case praticable la plus proche du centre de la carte
+  // (évite de faire apparaître le joueur collé au coin de la caméra, sous
+  // les widgets d'interface comme la mini-carte).
+  const cx0 = w/2, cy0 = h/2;
+  let spawn = null, bestSpawnD = Infinity;
+  for(let y=1;y<h-1;y++) for(let x=1;x<w-1;x++){
+    if(grid[y][x]!==FLOOR) continue;
+    const d = (x-cx0)*(x-cx0) + (y-cy0)*(y-cy0);
+    if(d < bestSpawnD){ bestSpawnD = d; spawn = [x,y]; }
   }
   if(!spawn) spawn=[Math.floor(w/2), Math.floor(h/2)];
 
@@ -165,7 +168,7 @@ export function generateZoneMap(zone, seed){
 
   const enemySpawns = [];
   if(zone.enemyPool && zone.enemyPool.length){
-    const density = zone.kind==='town' ? 0 : Math.max(14, Math.floor(floorTiles.length/55));
+    const density = zone.kind==='town' ? 0 : Math.min(35, Math.max(12, Math.floor(floorTiles.length/110)));
     let tries = 0;
     while(enemySpawns.length < density && tries < density*20){
       tries++;
