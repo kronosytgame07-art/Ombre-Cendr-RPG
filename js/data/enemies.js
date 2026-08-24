@@ -100,7 +100,7 @@ export const ENEMY_TYPES = {
   },
   troll_roc: {
     id:'troll_roc', name:'Troll de Roc', family:'bête',
-    sprite:{kind:'creature', shape:'golem', main:'#7a6248', eye:'#ffcf5a'},
+    sprite:{kind:'creature', shape:'troll', main:'#7a6248', eye:'#ffcf5a'},
     behavior:'melee', speed:0.9, aggroRange:200, atkRange:44, atkCooldown:1.4, regen:2,
     base:{hp:80, dmg:[11,19], armor:6, xp:24},
     resist:{physique:15}, zones:['grottes'],
@@ -108,7 +108,7 @@ export const ENEMY_TYPES = {
   },
   geant_givre: {
     id:'geant_givre', name:'Géant de Givre', family:'bête',
-    sprite:{kind:'creature', shape:'golem', main:'#a9c9d8', eye:'#eaffff'},
+    sprite:{kind:'creature', shape:'yeti', main:'#a9c9d8', eye:'#eaffff'},
     behavior:'melee', speed:0.8, aggroRange:210, atkRange:46, atkCooldown:1.5, slowOnHit:0.3,
     base:{hp:110, dmg:[14,22], armor:8, xp:32},
     resist:{glace:60, feu:-20}, zones:['toundra'],

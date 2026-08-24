@@ -265,6 +265,30 @@ export function drawCreature(opts){
       px(ctx, cx-w*0.20, cy+h*0.30, w*0.16, h*0.14, mainD); px(ctx, cx+w*0.06, cy+h*0.30, w*0.16, h*0.14, mainD);
       break;
     }
+    case 'troll': {
+      // silhouette voûtée, longs bras traînants, petite tête — bien distincte du golem cubique
+      px(ctx, cx-w*0.20, cy-h*0.02, w*0.40, h*0.40, main);
+      ctx.fillStyle = mainD;
+      ctx.beginPath(); ctx.moveTo(cx-w*0.22,cy-h*0.10); ctx.lineTo(cx-w*0.38,cy+h*0.34); ctx.lineTo(cx-w*0.26,cy+h*0.40); ctx.lineTo(cx-w*0.14,cy-h*0.02); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(cx+w*0.22,cy-h*0.10); ctx.lineTo(cx+w*0.38,cy+h*0.34); ctx.lineTo(cx+w*0.26,cy+h*0.40); ctx.lineTo(cx+w*0.14,cy-h*0.02); ctx.closePath(); ctx.fill();
+      circle(ctx, cx-w*0.30, cy+h*0.36, w*0.06, mainD); circle(ctx, cx+w*0.30, cy+h*0.36, w*0.06, mainD);
+      circle(ctx, cx, cy-h*0.24, w*0.16, mainL);
+      circle(ctx, cx-5, cy-h*0.24, 2, eye); circle(ctx, cx+5, cy-h*0.24, 2, eye);
+      px(ctx, cx-w*0.16, cy+h*0.30, w*0.12, h*0.14, mainD); px(ctx, cx+w*0.04, cy+h*0.30, w*0.12, h*0.14, mainD);
+      break;
+    }
+    case 'yeti': {
+      // masse arrondie et touffue, plus large que le golem, teintes claires givrées
+      ctx.fillStyle = main;
+      ctx.beginPath(); ctx.ellipse(cx, cy+h*0.06, w*0.34, h*0.30, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = mainL;
+      ctx.beginPath(); ctx.ellipse(cx, cy-h*0.10, w*0.24, h*0.16, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = mainD;
+      circle(ctx, cx-w*0.30, cy+h*0.10, w*0.10, mainD); circle(ctx, cx+w*0.30, cy+h*0.10, w*0.10, mainD);
+      px(ctx, cx-w*0.20, cy+h*0.32, w*0.14, h*0.12, mainD); px(ctx, cx+w*0.06, cy+h*0.32, w*0.14, h*0.12, mainD);
+      circle(ctx, cx-6, cy-h*0.14, 2.4, eye); circle(ctx, cx+6, cy-h*0.14, 2.4, eye);
+      break;
+    }
     case 'larve': {
       ctx.fillStyle=main;
       ctx.beginPath(); ctx.ellipse(cx, cy+h*0.10, w*0.30, h*0.20,0,0,Math.PI*2); ctx.fill();
