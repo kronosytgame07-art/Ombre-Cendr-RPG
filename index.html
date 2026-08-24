@@ -126,13 +126,9 @@
       </div>
 
       <div class="hud-center">
-        <div class="portrait-bar" id="portrait-bar">
-          <div class="mini-portrait" id="mini-portrait"></div>
-          <div class="xp-wrap">
-            <div class="hero-name-label" id="hud-hero-name">—</div>
-            <div class="xp-bar"><div id="xp-fill" class="xp-fill"></div></div>
-            <div class="level-label" id="hud-level">Niv. 1</div>
-          </div>
+        <div class="xp-wrap">
+          <div class="hero-name-label"><span id="hud-hero-name">—</span> <span id="hud-level">Niv. 1</span></div>
+          <div class="xp-bar"><div id="xp-fill" class="xp-fill"></div></div>
         </div>
         <div class="skill-bar" id="skill-bar"></div>
       </div>
@@ -154,7 +150,10 @@
 
       <div class="zone-banner" id="zone-banner"></div>
       <div class="floating-texts" id="floating-texts"></div>
-      <div class="minimap" id="minimap"><canvas id="minimap-canvas"></canvas></div>
+      <div class="minimap" id="minimap" title="Agrandir la carte">
+        <div class="minimap-label" id="minimap-zone-label"></div>
+        <canvas id="minimap-canvas"></canvas>
+      </div>
     </div>
 
     <!-- Inventaire / Equipement -->
@@ -190,7 +189,9 @@
 
     <!-- Carte du monde -->
     <div id="panel-map" class="panel">
-      <div class="panel-header">Carte du Monde <button class="panel-close" data-close="panel-map">✕</button></div>
+      <div class="panel-header"><span id="bigmap-title">Carte de la Zone</span> <button class="panel-close" data-close="panel-map">✕</button></div>
+      <div class="bigmap-wrap"><canvas id="bigmap-canvas"></canvas></div>
+      <div class="panel-header sub">Voyage Rapide</div>
       <div class="worldmap-list" id="worldmap-list"></div>
     </div>
 

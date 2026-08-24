@@ -23,7 +23,7 @@ export function createPlayer(classId, name){
     potions:{vie:3, mana:3},
     hp:null, resource:null,
     pos:{x:0, y:0}, facing:{x:0, y:1}, moving:false,
-    currentZone:'refuge', unlockedZones:['refuge','cimetiere'], defeatedBosses:[], clearedOnce:{},
+    currentZone:'refuge', unlockedZones:['refuge','foret'], defeatedBosses:[], clearedOnce:{},
     cooldowns:{}, buffs:[], action:null,
     hotbar: [null, cls.branches[0]+'_t1', cls.branches[1]+'_t1', cls.branches[2]+'_t1', null],
     codex:{bestiary:[], lore:['embrasement']},
@@ -48,7 +48,7 @@ export function playerSpriteCanvas(player, pose){
   const weaponItem = player.equipment.arme;
   const weaponType = weaponItem ? weaponItem.weaponClass : 'none';
   return drawHumanoid({
-    w:56, h:70, skin:cls.palette.skin, cloth:cls.palette.cloth, accent:cls.palette.accent,
+    w:68, h:86, skin:cls.palette.skin, cloth:cls.palette.cloth, accent:cls.palette.accent,
     trim:cls.palette.trim, hair:cls.palette.hair, weapon:weaponType,
     hood: cls.hood && !player.equipment.casque, cloak:cls.cloak, armor:cls.armorStyle,
     shield: !!player.equipment.bouclier, helmet: !!player.equipment.casque,
@@ -62,10 +62,10 @@ const enemySpriteCache = new Map();
 // un léger mouvement est appliqué au moment du rendu par le jeu).
 export function enemySpriteCanvas(def, pose){
   if(def.sprite.kind === 'humanoid'){
-    return drawHumanoid({w:56, h:70, ...spriteHumanoidOpts(def.sprite), pose});
+    return drawHumanoid({w:68, h:86, ...spriteHumanoidOpts(def.sprite), pose});
   }
   if(enemySpriteCache.has(def.id)) return enemySpriteCache.get(def.id);
-  const canvas = drawCreature({w:64, h:54, shape:def.sprite.shape, main:def.sprite.main, eye:def.sprite.eye});
+  const canvas = drawCreature({w:76, h:64, shape:def.sprite.shape, main:def.sprite.main, eye:def.sprite.eye});
   enemySpriteCache.set(def.id, canvas);
   return canvas;
 }
@@ -88,6 +88,7 @@ export function createEnemy(defId, level, x, y){
     atkCooldownMax: def.atkCooldown, atkCooldownCur: 0, projectileSpeed: def.projectileSpeed||5,
     state:'idle', facing:{x:0,y:1}, hitFlash:0, dead:false, deathTimer:0,
     statusEffects:[], isBoss:false, isElite:!!def.elite, def,
+    spawnPos:{x,y}, wanderTarget:null, wanderTimer:0, moving:false,
   };
 }
 
@@ -102,6 +103,7 @@ export function createBoss(bossId, x, y){
     projectileSpeed: def.base.projectileSpeed||5.5,
     state:'idle', facing:{x:0,y:1}, hitFlash:0, dead:false, deathTimer:0,
     statusEffects:[], isBoss:true, isElite:true, def, glow: def.glow, lootTier: def.lootTier, isFinal: !!def.isFinal,
+    spawnPos:{x,y}, wanderTarget:null, wanderTimer:0, moving:false,
   };
 }
 

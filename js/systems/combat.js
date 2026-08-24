@@ -359,8 +359,11 @@ export function updateEnemyAI(game, enemy, dt){
 
   if(enemy.state==='idle' && d < enemy.aggroRange) enemy.state='chase';
 
-  if(enemy.state==='chase'){
-    if(d <= enemy.atkRange){ enemy.state='attack'; }
+  if(enemy.state==='idle'){
+    enemy.moving = wanderTick(game, enemy, dt);
+  } else if(enemy.state==='chase'){
+    enemy.moving = true;
+    if(d <= enemy.atkRange){ enemy.state='attack'; enemy.moving=false; }
     else{
       const a = angleTo(enemy.pos, player.pos);
       enemy.facing = {x:Math.cos(a), y:Math.sin(a)};
@@ -371,6 +374,7 @@ export function updateEnemyAI(game, enemy, dt){
       if(d > enemy.aggroRange*1.6) enemy.state='idle';
     }
   } else if(enemy.state==='attack'){
+    enemy.moving = false;
     if(d > enemy.atkRange*1.3){ enemy.state='chase'; }
     else{
       const a = angleTo(enemy.pos, player.pos);
@@ -382,6 +386,36 @@ export function updateEnemyAI(game, enemy, dt){
       }
     }
   }
+}
+
+// Déambulation aléatoire autour du point d'apparition tant qu'aucun joueur
+// n'est détecté, pour que le monde ne semble pas figé. Retourne true si
+// l'ennemi est en train de se déplacer (pour l'animation de marche).
+const WANDER_RADIUS = 130;
+function wanderTick(game, enemy, dt){
+  enemy.wanderTimer -= dt;
+  if(!enemy.wanderTarget || enemy.wanderTimer <= 0 || dist(enemy.pos, enemy.wanderTarget) < 10){
+    if(Math.random() < 0.35){
+      const a = Math.random()*Math.PI*2;
+      const r = Math.random()*WANDER_RADIUS;
+      enemy.wanderTarget = {x: enemy.spawnPos.x+Math.cos(a)*r, y: enemy.spawnPos.y+Math.sin(a)*r};
+      enemy.wanderTimer = 2.5 + Math.random()*3;
+    } else {
+      enemy.wanderTarget = null;
+      enemy.wanderTimer = 1.5 + Math.random()*2.5;
+      return false;
+    }
+  }
+  if(!enemy.wanderTarget) return false;
+  const a = angleTo(enemy.pos, enemy.wanderTarget);
+  enemy.facing = {x:Math.cos(a), y:Math.sin(a)};
+  const wanderSpeed = enemy.speed*0.42;
+  const nx = enemy.pos.x + Math.cos(a)*wanderSpeed*dt;
+  const ny = enemy.pos.y + Math.sin(a)*wanderSpeed*dt;
+  let moved = false;
+  if(tileWalkableAtPixel(game, nx, enemy.pos.y)){ enemy.pos.x = nx; moved = true; }
+  if(tileWalkableAtPixel(game, enemy.pos.x, ny)){ enemy.pos.y = ny; moved = true; }
+  return moved;
 }
 
 function performEnemyAttack(game, enemy){
