@@ -1,0 +1,503 @@
+import { TILE_SIZE } from './engine/config.js';
+import { Input } from './engine/input.js';
+import { makeTile } from './engine/sprites.js';
+import { generateZoneMap, isWalkable } from './engine/mapgen.js';
+import { getZone, nextZone, zoneLevel } from './data/zones.js';
+import { ENEMY_TYPES, BOSSES } from './data/enemies.js';
+import { createEnemy, createBoss, enemySpriteCanvas, bossSpriteCanvas, playerSpriteCanvas, createPickup } from './entities.js';
+import { updateEnemyAI, applyEnemyHitOnPlayer, castSkill, basicAttackSkillId, resolveSkillImpl, applyPlayerHitOnEnemy } from './systems/combat.js';
+import { spawnLootPickups, rollLootForEnemy } from './systems/loot.js';
+import { generateItem } from './data/items.js';
+import { Rng } from './engine/rng.js';
+import { getDifficultyMult } from './engine/difficulty.js';
+
+const PLAYER_RADIUS = 16;
+const PORTAL_TRIGGER_DIST = 70;
+
+export class Game{
+  constructor(canvas, player){
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.ctx.imageSmoothingEnabled = false;
+    this.player = player;
+    this.enemies = [];
+    this.projectiles = [];
+    this.pickups = [];
+    this.allies = [];
+    this.traps = [];
+    this.fx = [];
+    this.floatingTexts = [];
+    this.pendingLevelEvents = [];
+    this.pendingNotices = [];
+    this.camera = {x:0, y:0, zoom:2};
+    this.map = null;
+    this.zone = null;
+    this.bossActive = null;
+    this.bossSpawnedThisVisit = false;
+    this.paused = false;
+    this.time = 0;
+    this.deathHandled = false;
+    this.victoryHandled = false;
+    Input.bindCanvas(canvas, this.camera);
+    this.resize();
+    window.addEventListener('resize', ()=>this.resize());
+  }
+
+  resize(){
+    const rect = this.canvas.parentElement.getBoundingClientRect();
+    this.canvas.width = Math.floor(rect.width);
+    this.canvas.height = Math.floor(rect.height);
+    this.ctx.imageSmoothingEnabled = false;
+  }
+
+  enterZone(zoneId){
+    const zone = getZone(zoneId);
+    this.zone = zone;
+    this.player.currentZone = zoneId;
+    const seed = (Date.now() ^ (zoneId.length*7919)) >>> 0;
+    this.map = generateZoneMap(zone, seed);
+    this.enemies = []; this.projectiles = []; this.pickups = []; this.allies = [];
+    this.traps = []; this.fx = []; this.floatingTexts = [];
+    this.bossActive = null;
+    this.bossSpawnedThisVisit = false;
+    this.deathHandled = false;
+
+    this.player.pos.x = (this.map.spawn.x+0.5)*TILE_SIZE;
+    this.player.pos.y = (this.map.spawn.y+0.5)*TILE_SIZE;
+
+    const lvl = zone.kind==='town' ? 1 : zoneLevel(zone);
+    const diffMult = getDifficultyMult();
+    for(const spawn of this.map.enemySpawns){
+      const e = createEnemy(spawn.typeId, lvl, (spawn.x+0.5)*TILE_SIZE, (spawn.y+0.5)*TILE_SIZE);
+      e.hp = e.maxHp = Math.round(e.hp*diffMult);
+      e.dmg = e.dmg.map(d=>Math.round(d*diffMult));
+      this.enemies.push(e);
+    }
+    for(const c of this.map.chests){
+      this.pickups.push(createPickup('chest', (c.x+0.5)*TILE_SIZE, (c.y+0.5)*TILE_SIZE, {opened:false, zoneLevel:lvl}));
+    }
+    this.tileCache = {
+      floor: makeTile(zone.floorTile, 0),
+      wall: makeTile(zone.wallTile, 1),
+      accent: makeTile(zone.accentTile, 2),
+    };
+    this.notify(zone.name);
+  }
+
+  notify(bannerText){
+    this.pendingNotices.push({type:'banner', text:bannerText});
+  }
+
+  onEnemyKilled(enemy){
+    spawnLootPickups(this, enemy);
+    if(!this.player.codex.bestiary.includes(enemy.defId) && ENEMY_TYPES[enemy.defId]){
+      this.player.codex.bestiary.push(enemy.defId);
+    }
+    if(enemy.isBoss){
+      this.bossActive = null;
+      if(!this.player.defeatedBosses.includes(enemy.defId)){
+        this.player.defeatedBosses.push(enemy.defId);
+        const nz = nextZone(this.zone.id);
+        if(nz && !this.player.unlockedZones.includes(nz.id)){
+          this.player.unlockedZones.push(nz.id);
+          this.pendingNotices.push({type:'unlock', zoneName:nz.name});
+        }
+      }
+      if(enemy.isFinal){
+        this.pendingNotices.push({type:'victory'});
+      } else {
+        this.pendingNotices.push({type:'bossdown', name: enemy.name});
+      }
+    }
+  }
+
+  update(dt){
+    if(this.paused) return;
+    this.time += dt;
+    const player = this.player;
+
+    for(const k in player.cooldowns){ if(player.cooldowns[k]>0) player.cooldowns[k] = Math.max(0, player.cooldowns[k]-dt); }
+    for(let i=player.buffs.length-1;i>=0;i--){ player.buffs[i].remaining -= dt; if(player.buffs[i].remaining<=0) player.buffs.splice(i,1); }
+    if(player.resource < player.stats.maxResource){
+      player.resource = Math.min(player.stats.maxResource, player.resource + player.stats.maxResource*0.05*(1+player.stats.resourceRegenPct/100)*dt);
+    }
+
+    this.handleMovement(dt);
+    this.handleInputActions();
+
+    for(const e of this.enemies) updateEnemyAI(this, e, dt);
+    this.updateAllies(dt);
+    this.updateProjectiles(dt);
+    this.updateTraps(dt);
+    this.updatePickupsAndPortal();
+    this.updateFx(dt);
+    this.updateFloatingTexts(dt);
+    this.cleanupDead();
+
+    if(player.hp <= 0 && !this.deathHandled){
+      this.deathHandled = true;
+      this.pendingNotices.push({type:'death'});
+    }
+
+    Input.endFrame();
+  }
+
+  handleMovement(dt){
+    const player = this.player;
+    if(player.hp<=0) return;
+    let dx=0, dy=0;
+    if(Input.isDown('z')||Input.isDown('arrowup')||Input.isDown('w')) dy-=1;
+    if(Input.isDown('s')||Input.isDown('arrowdown')) dy+=1;
+    if(Input.isDown('q')||Input.isDown('arrowleft')||Input.isDown('a')) dx-=1;
+    if(Input.isDown('d')||Input.isDown('arrowright')) dx+=1;
+    const len = Math.hypot(dx,dy);
+    player.moving = len>0;
+    if(len>0){
+      dx/=len; dy/=len;
+      player.facing = {x:dx, y:dy};
+      const speed = 170*(1+player.stats.moveSpeedPct/100);
+      const nx = player.pos.x + dx*speed*dt;
+      const ny = player.pos.y + dy*speed*dt;
+      if(this.walkablePixel(nx, player.pos.y)) player.pos.x = nx;
+      if(this.walkablePixel(player.pos.x, ny)) player.pos.y = ny;
+    }
+  }
+
+  walkablePixel(px, py){
+    if(!this.map) return true;
+    return isWalkable(this.map, Math.floor(px/TILE_SIZE), Math.floor(py/TILE_SIZE));
+  }
+
+  handleInputActions(){
+    const player = this.player;
+    if(player.hp<=0) return;
+    const mouseWorld = {x:Input.mouse.worldX, y:Input.mouse.worldY};
+
+    if(Input.mouse.down){
+      castSkill(this, basicAttackSkillId(player), mouseWorld.x, mouseWorld.y);
+    }
+    for(let i=0;i<player.hotbar.length;i++){
+      const key = String(i+1);
+      if(Input.wasPressed(key) && player.hotbar[i]){
+        castSkill(this, player.hotbar[i], mouseWorld.x, mouseWorld.y);
+      }
+    }
+    if(Input.wasPressed('r')) this.usePotion('vie');
+    if(Input.wasPressed('f')) this.usePotion('mana');
+  }
+
+  usePotion(kind){
+    const player = this.player;
+    if((player.potions[kind]||0) <= 0) return;
+    player.potions[kind] -= 1;
+    if(kind==='vie') player.hp = Math.min(player.stats.maxHp, player.hp + player.stats.maxHp*0.35);
+    else player.resource = Math.min(player.stats.maxResource, player.resource + player.stats.maxResource*0.4);
+  }
+
+  updateAllies(dt){
+    for(const a of this.allies){
+      if(a.dead) continue;
+      a.remaining -= dt;
+      if(a.remaining<=0 || a.hp<=0){ a.dead = true; continue; }
+      let target=null, best=280;
+      for(const e of this.enemies){ if(e.dead) continue; const d=Math.hypot(e.pos.x-a.pos.x,e.pos.y-a.pos.y); if(d<best){best=d;target=e;} }
+      if(target){
+        const d = Math.hypot(target.pos.x-a.pos.x, target.pos.y-a.pos.y);
+        if(d>40){
+          const ang = Math.atan2(target.pos.y-a.pos.y, target.pos.x-a.pos.x);
+          a.pos.x += Math.cos(ang)*110*dt; a.pos.y += Math.sin(ang)*110*dt;
+        } else {
+          a.atkCooldownCur -= dt;
+          if(a.atkCooldownCur<=0){
+            a.atkCooldownCur = 1.0;
+            const dmg = (this.player.stats.dmgMin+this.player.stats.dmgMax)/2 * a.dmgMult;
+            target.hp -= dmg; target.hitFlash=0.15;
+            this.floatingTexts.push({x:target.pos.x,y:target.pos.y,text:String(Math.round(dmg)),crit:false,dmgType:'physique',life:1,vy:-40});
+            if(target.hp<=0 && !target.dead){ target.dead=true; target.deathTimer=0.6; this.onEnemyKilled(target); }
+          }
+        }
+      } else {
+        const d = Math.hypot(this.player.pos.x-a.pos.x, this.player.pos.y-a.pos.y);
+        if(d>60){ const ang=Math.atan2(this.player.pos.y-a.pos.y,this.player.pos.x-a.pos.x); a.pos.x+=Math.cos(ang)*110*dt; a.pos.y+=Math.sin(ang)*110*dt; }
+      }
+    }
+    this.allies = this.allies.filter(a=>!a.dead);
+  }
+
+  updateProjectiles(dt){
+    for(const p of this.projectiles){
+      p.pos.x += p.vel.x*dt; p.pos.y += p.vel.y*dt;
+      p.ttl -= dt;
+      if(p.ttl<=0 || !this.walkablePixel(p.pos.x,p.pos.y)) p.dead = true;
+      if(p.dead) continue;
+
+      if(p.fromPlayer){
+        for(const e of this.enemies){
+          if(e.dead || p.hitIds.has(e.uid)) continue;
+          if(Math.hypot(e.pos.x-p.pos.x, e.pos.y-p.pos.y) <= p.radius+18){
+            p.hitIds.add(e.uid);
+            applyPlayerHitOnEnemy(this, e, 1, p.dmgType||'physique', {status:p.statusEffect});
+            if(p.explodeRadius){
+              for(const e2 of this.enemies){
+                if(e2===e||e2.dead) continue;
+                if(Math.hypot(e2.pos.x-p.pos.x,e2.pos.y-p.pos.y)<=p.explodeRadius) applyPlayerHitOnEnemy(this, e2, 0.6, p.dmgType||'physique', {});
+              }
+            }
+            if(p.chainBounces>0){
+              let target=null,best=p.chainRange;
+              for(const e3 of this.enemies){ if(e3.dead||p.hitIds.has(e3.uid)) continue; const d=Math.hypot(e3.pos.x-p.pos.x,e3.pos.y-p.pos.y); if(d<best){best=d;target=e3;} }
+              if(target){
+                p.chainBounces -= 1;
+                const ang = Math.atan2(target.pos.y-p.pos.y, target.pos.x-p.pos.x);
+                const speed = Math.hypot(p.vel.x,p.vel.y);
+                p.vel.x = Math.cos(ang)*speed; p.vel.y = Math.sin(ang)*speed;
+                p.ttl = 1.5;
+              } else { if(p.pierce<=0) p.dead = true; }
+            } else if(p.pierce>0){ p.pierce -= 1; }
+            else p.dead = true;
+          }
+        }
+      } else {
+        const pl = this.player;
+        if(Math.hypot(pl.pos.x-p.pos.x, pl.pos.y-p.pos.y) <= p.radius+PLAYER_RADIUS){
+          if(Math.random()*100 < (pl.stats.dodgePct||0)){
+            this.floatingTexts.push({x:pl.pos.x,y:pl.pos.y,text:'Esquive !',crit:false,dmgType:'esquive',life:1,vy:-40});
+          } else {
+            const mitig = Math.max(1, (p.dmgMin) * (100/(100+pl.stats.armor)));
+            pl.hp -= mitig;
+            this.floatingTexts.push({x:pl.pos.x,y:pl.pos.y-10,text:String(Math.round(mitig)),crit:false,dmgType:'subi',life:1,vy:-40});
+          }
+          p.dead = true;
+        }
+      }
+    }
+    this.projectiles = this.projectiles.filter(p=>!p.dead);
+  }
+
+  updateTraps(dt){
+    for(const t of this.traps){
+      if(t.triggered) continue;
+      if(t.armTime>0){ t.armTime -= dt; continue; }
+      t.life -= dt;
+      if(t.life<=0){ t.triggered=true; continue; }
+      for(const e of this.enemies){
+        if(e.dead) continue;
+        if(Math.hypot(e.pos.x-t.pos.x, e.pos.y-t.pos.y) <= t.radius){
+          t.triggered = true;
+          for(const e2 of this.enemies){
+            if(e2.dead) continue;
+            if(Math.hypot(e2.pos.x-t.pos.x, e2.pos.y-t.pos.y) <= t.radius) applyPlayerHitOnEnemy(this, e2, t.dmgMult, t.dmgType, {});
+          }
+          this.fx.push({type:'pulse', x:t.pos.x, y:t.pos.y, radius:t.radius, life:0.3, age:0, color:t.color});
+          break;
+        }
+      }
+    }
+    this.traps = this.traps.filter(t=>!t.triggered);
+  }
+
+  updatePickupsAndPortal(){
+    const player = this.player;
+    for(const p of this.pickups){
+      if(p.dead) continue;
+      const d = Math.hypot(p.pos.x-player.pos.x, p.pos.y-player.pos.y);
+      if(p.kind==='chest'){
+        if(d < 40 && !p.payload.opened){
+          p.payload.opened = true;
+          const rng = new Rng((Math.random()*1e9)|0);
+          const item = generateItem({baseType: rng.pick(['epee','hache','dague','arc','baton','sceptre','casque','plastron','gants','bottes','ceinture','anneau','amulette']), itemLevel:p.payload.zoneLevel, rng, forClass:player.classId});
+          this.grantItem(item);
+          this.grantGold(10+Math.round(Math.random()*20));
+          p.dead = true;
+        }
+        continue;
+      }
+      if(d < 30){
+        if(p.kind==='gold'){ this.grantGold(p.payload.amount); p.dead=true; }
+        else if(p.kind==='item'){ this.grantItem(p.payload.item); p.dead=true; }
+        else if(p.kind==='potion'){ player.potions[p.payload.potionKind] = (player.potions[p.payload.potionKind]||0)+1; p.dead=true; }
+      }
+    }
+    this.pickups = this.pickups.filter(p=>!p.dead);
+
+    if(this.map && this.map.portal && this.zone.bossId && this.player.hp > 0){
+      const d = Math.hypot(player.pos.x-(this.map.portal.x+0.5)*TILE_SIZE, player.pos.y-(this.map.portal.y+0.5)*TILE_SIZE);
+      if(d < PORTAL_TRIGGER_DIST && !this.bossSpawnedThisVisit){
+        this.bossSpawnedThisVisit = true;
+        const boss = createBoss(this.zone.bossId, (this.map.portal.x+0.5)*TILE_SIZE, (this.map.portal.y+0.5)*TILE_SIZE);
+        const dm = getDifficultyMult();
+        boss.hp = boss.maxHp = Math.round(boss.hp*dm);
+        boss.dmg = boss.dmg.map(d=>Math.round(d*dm));
+        this.bossActive = boss;
+        this.enemies.push(boss);
+        this.pendingNotices.push({type:'bossintro', name:boss.name, text:BOSSES[this.zone.bossId].intro});
+      }
+    }
+  }
+
+  grantGold(amount){
+    this.player.gold += Math.round(amount*(1+(this.player.stats.goldFind||0)/100));
+    this.floatingTexts.push({x:this.player.pos.x, y:this.player.pos.y-20, text:`+${Math.round(amount)} or`, crit:false, dmgType:'or', life:1.1, vy:-30});
+  }
+  grantItem(item){
+    const slot = this.player.inventory.findIndex(x=>x===null);
+    if(slot===-1){ this.pendingNotices.push({type:'inventoryfull'}); return; }
+    this.player.inventory[slot] = item;
+    this.pendingNotices.push({type:'loot', item});
+  }
+
+  updateFx(dt){
+    for(const f of this.fx) f.age += dt;
+    this.fx = this.fx.filter(f=>f.age < f.life);
+  }
+  updateFloatingTexts(dt){
+    for(const t of this.floatingTexts){ t.life -= dt; t.y += t.vy*dt; }
+    this.floatingTexts = this.floatingTexts.filter(t=>t.life>0);
+  }
+
+  cleanupDead(){
+    for(const e of this.enemies){ if(e.dead) e.deathTimer -= 1/60; }
+    this.enemies = this.enemies.filter(e=>!e.dead || e.deathTimer > -1);
+  }
+
+  // ------------------------------------------------------------------
+  render(){
+    const ctx = this.ctx;
+    const cvw = this.canvas.width, cvh = this.canvas.height;
+    ctx.fillStyle = '#000'; ctx.fillRect(0,0,cvw,cvh);
+    if(!this.map) return;
+
+    this.camera.x = this.player.pos.x - cvw/(2*this.camera.zoom);
+    this.camera.y = this.player.pos.y - cvh/(2*this.camera.zoom);
+    const maxX = this.map.w*TILE_SIZE - cvw/this.camera.zoom;
+    const maxY = this.map.h*TILE_SIZE - cvh/this.camera.zoom;
+    this.camera.x = Math.max(0, Math.min(Math.max(0,maxX), this.camera.x));
+    this.camera.y = Math.max(0, Math.min(Math.max(0,maxY), this.camera.y));
+
+    ctx.save();
+    ctx.scale(this.camera.zoom, this.camera.zoom);
+    ctx.translate(-this.camera.x, -this.camera.y);
+
+    const x0 = Math.max(0, Math.floor(this.camera.x/TILE_SIZE)-1);
+    const y0 = Math.max(0, Math.floor(this.camera.y/TILE_SIZE)-1);
+    const x1 = Math.min(this.map.w, Math.ceil((this.camera.x+cvw/this.camera.zoom)/TILE_SIZE)+1);
+    const y1 = Math.min(this.map.h, Math.ceil((this.camera.y+cvh/this.camera.zoom)/TILE_SIZE)+1);
+    for(let y=y0;y<y1;y++){
+      for(let x=x0;x<x1;x++){
+        const walkable = isWalkable(this.map, x, y);
+        const tile = walkable ? this.tileCache.floor : this.tileCache.wall;
+        ctx.drawImage(tile, x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE, TILE_SIZE);
+      }
+    }
+
+    if(this.map.portal){
+      const px=(this.map.portal.x+0.5)*TILE_SIZE, py=(this.map.portal.y+0.5)*TILE_SIZE;
+      const pulse = 10+Math.sin(this.time*3)*4;
+      ctx.strokeStyle = this.bossSpawnedThisVisit ? '#555' : (this.zone.isFinal?'#8a1fff':'#ff8c2b');
+      ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(px,py,20+pulse,0,Math.PI*2); ctx.stroke();
+    }
+
+    for(const t of this.traps){
+      if(t.armTime>0) continue;
+      ctx.fillStyle='rgba(255,140,43,0.5)';
+      ctx.beginPath(); ctx.arc(t.pos.x,t.pos.y,8,0,Math.PI*2); ctx.fill();
+    }
+    for(const p of this.pickups){
+      ctx.fillStyle = p.kind==='gold' ? '#d8b45a' : p.kind==='chest' ? '#8a6d3a' : p.kind==='potion' ? '#7fd97f' : '#e8dcc8';
+      ctx.beginPath(); ctx.arc(p.pos.x,p.pos.y,p.kind==='chest'?10:6,0,Math.PI*2); ctx.fill();
+    }
+
+    const drawList = [...this.enemies, ...this.allies, {isPlayer:true, pos:this.player.pos, facing:this.player.facing}];
+    drawList.sort((a,b)=>a.pos.y-b.pos.y);
+    for(const ent of drawList){
+      if(ent.isPlayer) this.drawPlayer(ctx);
+      else if(ent.kind==='squelette' || ent.kind==='loup') this.drawAlly(ctx, ent);
+      else this.drawEnemy(ctx, ent);
+    }
+
+    for(const p of this.projectiles){
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.pos.x,p.pos.y,p.radius,0,Math.PI*2); ctx.fill();
+    }
+
+    for(const f of this.fx) this.drawFx(ctx, f);
+
+    ctx.restore();
+  }
+
+  drawPlayer(ctx){
+    const p = this.player;
+    const img = playerSpriteCanvas(p);
+    const w=44,h=56;
+    ctx.save();
+    ctx.translate(p.pos.x, p.pos.y);
+    const bob = p.moving ? Math.sin(this.time*10)*2 : 0;
+    if(p.facing.x < -0.1) ctx.scale(-1,1);
+    let alpha = 1;
+    for(const b of p.buffs) if(b.effect && b.effect.invisible) alpha = 0.35;
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(img, -w/2, -h+10+bob, w, h);
+    ctx.restore();
+    if(p.hp <= 0){ /* mort gérée par overlay UI */ }
+  }
+
+  drawEnemy(ctx, e){
+    const def = e.isBoss ? null : e.def;
+    const img = e.isBoss ? bossSpriteCanvas(e.defId) : enemySpriteCanvas(def);
+    const w = e.isBoss ? 112 : (def.sprite.kind==='humanoid'?44:52);
+    const h = e.isBoss ? 112 : (def.sprite.kind==='humanoid'?56:44);
+    ctx.save();
+    ctx.translate(e.pos.x, e.pos.y);
+    if(e.facing.x < -0.1) ctx.scale(-1,1);
+    let alpha = e.dead ? Math.max(0, e.deathTimer/0.6) : 1;
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(img, -w/2, -h+10, w, h);
+    if(e.hitFlash>0){
+      ctx.globalCompositeOperation='lighter';
+      ctx.globalAlpha = e.hitFlash*2;
+      ctx.drawImage(img, -w/2, -h+10, w, h);
+      ctx.globalCompositeOperation='source-over';
+      e.hitFlash -= 1/60;
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
+
+    if(!e.dead){
+      const barW = e.isBoss?70:32;
+      ctx.fillStyle='#000'; ctx.fillRect(e.pos.x-barW/2, e.pos.y-h+2, barW, 5);
+      ctx.fillStyle= e.isBoss ? '#c23b3b' : '#7fd97f';
+      ctx.fillRect(e.pos.x-barW/2, e.pos.y-h+2, barW*Math.max(0,e.hp/e.maxHp), 5);
+      if(e.isBoss){
+        ctx.fillStyle='#ffe9c9'; ctx.font='10px Georgia'; ctx.textAlign='center';
+        ctx.fillText(e.name, e.pos.x, e.pos.y-h-4);
+      }
+    }
+  }
+
+  drawAlly(ctx, a){
+    ctx.save();
+    ctx.translate(a.pos.x, a.pos.y);
+    ctx.fillStyle = a.kind==='loup' ? '#8fa0a8' : '#c9c2b0';
+    ctx.beginPath(); ctx.ellipse(0,-10,14,18,0,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  drawFx(ctx, f){
+    if(f.type==='slash'){
+      ctx.strokeStyle='rgba(255,255,255,0.8)'; ctx.lineWidth=4;
+      ctx.beginPath(); ctx.arc(f.x,f.y,f.radius*0.7, f.ang-0.9, f.ang+0.9); ctx.stroke();
+    } else if(f.type==='pulse'){
+      const t = f.age/f.life;
+      ctx.strokeStyle = f.color || 'rgba(179,77,255,0.6)'; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(f.x,f.y,f.radius*t,0,Math.PI*2); ctx.stroke();
+    }
+  }
+
+  worldToScreen(wx, wy){
+    return {
+      x:(wx-this.camera.x)*this.camera.zoom,
+      y:(wy-this.camera.y)*this.camera.zoom,
+    };
+  }
+}
