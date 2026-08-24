@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ombre Cendrée</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ===================== ECRAN DE CHARGEMENT ===================== -->
+  <div id="screen-boot" class="screen active">
+    <div class="boot-title">OMBRE CENDRÉE</div>
+    <div class="boot-bar"><div id="boot-fill" class="boot-fill"></div></div>
+    <div class="boot-sub">Les cendres se soulèvent...</div>
+  </div>
+
+  <!-- ===================== MENU PRINCIPAL ===================== -->
+  <div id="screen-menu" class="screen">
+    <div class="menu-vignette"></div>
+    <div class="embers" id="embers-layer"></div>
+    <h1 class="game-title">OMBRE <span>CENDRÉE</span></h1>
+    <div class="game-subtitle">Un royaume d'ash et d'ombre attend son dernier Cendré</div>
+    <nav class="menu-list" id="main-menu-list">
+      <button class="menu-btn" data-action="continue">Continuer</button>
+      <button class="menu-btn" data-action="new">Nouvelle Partie</button>
+      <button class="menu-btn" data-action="load">Charger une Partie</button>
+      <button class="menu-btn" data-action="options">Options</button>
+      <button class="menu-btn" data-action="codex">Codex du Monde</button>
+      <button class="menu-btn" data-action="credits">Crédits</button>
+    </nav>
+    <div class="menu-version">v1.0 — Chapitre I : La Faille</div>
+  </div>
+
+  <!-- ===================== CHOIX DE PERSONNAGE ===================== -->
+  <div id="screen-charselect" class="screen">
+    <h2 class="section-title">Choisissez votre Vocation</h2>
+    <div class="class-grid" id="class-grid"></div>
+    <div class="class-detail" id="class-detail">
+      <div class="class-detail-header">
+        <div class="class-portrait" id="class-portrait-canvas"></div>
+        <div>
+          <h3 id="class-name"></h3>
+          <div id="class-tagline" class="class-tagline"></div>
+        </div>
+      </div>
+      <p id="class-bio" class="class-bio"></p>
+      <div class="class-stats" id="class-stats"></div>
+      <div class="class-branches" id="class-branches"></div>
+    </div>
+    <div class="name-row">
+      <input id="hero-name-input" maxlength="18" placeholder="Nom de votre héros...">
+      <button class="menu-btn small" id="btn-confirm-class">Commencer l'aventure</button>
+      <button class="menu-btn small ghost" id="btn-back-charselect">Retour</button>
+    </div>
+  </div>
+
+  <!-- ===================== CHARGER PARTIE ===================== -->
+  <div id="screen-load" class="screen">
+    <h2 class="section-title">Vos Cendrés</h2>
+    <div id="save-slots" class="save-slots"></div>
+    <button class="menu-btn small ghost" id="btn-back-load">Retour</button>
+  </div>
+
+  <!-- ===================== OPTIONS ===================== -->
+  <div id="screen-options" class="screen">
+    <h2 class="section-title">Options</h2>
+    <div class="options-panel">
+      <label class="opt-row">Volume Musique
+        <input type="range" id="opt-music" min="0" max="100" value="40">
+      </label>
+      <label class="opt-row">Volume Effets
+        <input type="range" id="opt-sfx" min="0" max="100" value="60">
+      </label>
+      <label class="opt-row">Difficulté
+        <select id="opt-difficulty">
+          <option value="novice">Novice</option>
+          <option value="cendre" selected>Cendré</option>
+          <option value="brasier">Brasier</option>
+          <option value="nihilash">Cauchemar de Nihilash</option>
+        </select>
+      </label>
+      <label class="opt-row">Taille de l'interface
+        <input type="range" id="opt-uiscale" min="80" max="130" value="100">
+      </label>
+      <label class="opt-row checkbox-row"><input type="checkbox" id="opt-shake" checked> Tremblement de caméra</label>
+    </div>
+    <button class="menu-btn small ghost" id="btn-back-options">Retour</button>
+  </div>
+
+  <!-- ===================== CODEX (accueil, hors partie) ===================== -->
+  <div id="screen-codex" class="screen">
+    <h2 class="section-title">Codex du Monde</h2>
+    <div class="codex-layout">
+      <div class="codex-list" id="codex-list-outer"></div>
+      <div class="codex-content" id="codex-content-outer"></div>
+    </div>
+    <button class="menu-btn small ghost" id="btn-back-codex">Retour</button>
+  </div>
+
+  <!-- ===================== CREDITS ===================== -->
+  <div id="screen-credits" class="screen">
+    <h2 class="section-title">Crédits</h2>
+    <div class="credits-text">
+      <p><strong>OMBRE CENDRÉE</strong></p>
+      <p>Un action-RPG dans la lignée des grands hack'n'slash, entièrement jouable dans votre navigateur.</p>
+      <p>Conçu et assemblé avec Claude Code.</p>
+      <p>Rendu en pixel art procédural HD, sans dépendance externe.</p>
+    </div>
+    <button class="menu-btn small ghost" id="btn-back-credits">Retour</button>
+  </div>
+
+  <!-- ===================== JEU ===================== -->
+  <div id="screen-game" class="screen">
+    <canvas id="game-canvas"></canvas>
+
+    <!-- HUD -->
+    <div id="hud" class="hud">
+      <div class="hud-left">
+        <div class="orb orb-health" id="orb-health">
+          <div class="orb-fill" id="orb-health-fill"></div>
+          <div class="orb-text" id="orb-health-text">0/0</div>
+        </div>
+      </div>
+
+      <div class="hud-center">
+        <div class="portrait-bar" id="portrait-bar">
+          <div class="mini-portrait" id="mini-portrait"></div>
+          <div class="xp-wrap">
+            <div class="hero-name-label" id="hud-hero-name">—</div>
+            <div class="xp-bar"><div id="xp-fill" class="xp-fill"></div></div>
+            <div class="level-label" id="hud-level">Niv. 1</div>
+          </div>
+        </div>
+        <div class="skill-bar" id="skill-bar"></div>
+      </div>
+
+      <div class="hud-right">
+        <div class="orb orb-mana" id="orb-mana">
+          <div class="orb-fill" id="orb-mana-fill"></div>
+          <div class="orb-text" id="orb-mana-text">0/0</div>
+        </div>
+      </div>
+
+      <div class="hud-buttons">
+        <button class="icon-btn" id="btn-open-inventory" title="Inventaire (I)">🎒</button>
+        <button class="icon-btn" id="btn-open-skills" title="Compétences (K)">🌳</button>
+        <button class="icon-btn" id="btn-open-codex" title="Codex (J)">📖</button>
+        <button class="icon-btn" id="btn-open-map" title="Carte (M)">🗺️</button>
+        <button class="icon-btn" id="btn-open-pause" title="Menu (Échap)">☰</button>
+      </div>
+
+      <div class="zone-banner" id="zone-banner"></div>
+      <div class="floating-texts" id="floating-texts"></div>
+      <div class="minimap" id="minimap"><canvas id="minimap-canvas"></canvas></div>
+    </div>
+
+    <!-- Inventaire / Equipement -->
+    <div id="panel-inventory" class="panel">
+      <div class="panel-header">Inventaire <button class="panel-close" data-close="panel-inventory">✕</button></div>
+      <div class="inventory-layout">
+        <div class="equip-doll" id="equip-doll"></div>
+        <div class="char-sheet" id="char-sheet"></div>
+        <div class="inv-grid" id="inv-grid"></div>
+      </div>
+      <div class="item-tooltip" id="item-tooltip"></div>
+    </div>
+
+    <!-- Arbre de compétences -->
+    <div id="panel-skills" class="panel">
+      <div class="panel-header">Arbre de Compétences <span id="skill-points-label"></span><button class="panel-close" data-close="panel-skills">✕</button></div>
+      <div class="skill-tabs" id="skill-tabs"></div>
+      <div class="skill-tree-wrap">
+        <canvas id="skilltree-canvas"></canvas>
+        <div id="skilltree-nodes"></div>
+      </div>
+      <div class="skill-detail" id="skill-detail"></div>
+    </div>
+
+    <!-- Codex en jeu -->
+    <div id="panel-codex" class="panel">
+      <div class="panel-header">Codex <button class="panel-close" data-close="panel-codex">✕</button></div>
+      <div class="codex-layout">
+        <div class="codex-list" id="codex-list-inner"></div>
+        <div class="codex-content" id="codex-content-inner"></div>
+      </div>
+    </div>
+
+    <!-- Carte du monde -->
+    <div id="panel-map" class="panel">
+      <div class="panel-header">Carte du Monde <button class="panel-close" data-close="panel-map">✕</button></div>
+      <div class="worldmap-list" id="worldmap-list"></div>
+    </div>
+
+    <!-- Menu pause -->
+    <div id="panel-pause" class="panel">
+      <div class="panel-header">Pause</div>
+      <div class="pause-list">
+        <button class="menu-btn small" id="btn-resume">Reprendre</button>
+        <button class="menu-btn small" id="btn-save-game">Sauvegarder</button>
+        <button class="menu-btn small" id="btn-pause-options">Options</button>
+        <button class="menu-btn small ghost" id="btn-quit-menu">Quitter vers le Menu</button>
+      </div>
+    </div>
+
+    <!-- Ecran de mort -->
+    <div id="panel-death" class="panel death-panel">
+      <h2>Vous êtes tombé dans les cendres...</h2>
+      <p id="death-sub"></p>
+      <button class="menu-btn small" id="btn-respawn">Renaître à Cendre-Refuge</button>
+    </div>
+
+    <!-- Ecran de victoire -->
+    <div id="panel-victory" class="panel death-panel">
+      <h2>Nihilash est vaincu</h2>
+      <p>Les cendres retombent en silence. Le monde respire à nouveau.</p>
+      <button class="menu-btn small" id="btn-victory-continue">Continuer à explorer</button>
+      <button class="menu-btn small ghost" id="btn-victory-menu">Retour au Menu</button>
+    </div>
+
+    <!-- Dialogue / Loot popup -->
+    <div id="loot-popup" class="loot-popup"></div>
+    <div id="tutorial-hint" class="tutorial-hint"></div>
+  </div>
+
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
