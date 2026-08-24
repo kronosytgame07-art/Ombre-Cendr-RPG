@@ -4,6 +4,7 @@ import { xpToNextLevel, INVENTORY_SIZE } from './engine/config.js';
 import { ENEMY_TYPES, BOSSES, scaledEnemyStats } from './data/enemies.js';
 import { drawHumanoid, drawCreature, drawBoss, shade } from './engine/sprites.js';
 import { generateItem } from './data/items.js';
+import { ZONES } from './data/zones.js';
 
 let uidCounter = 1;
 function nextUid(){ return uidCounter++; }
@@ -23,7 +24,10 @@ export function createPlayer(classId, name){
     potions:{vie:3, mana:3},
     hp:null, resource:null,
     pos:{x:0, y:0}, facing:{x:0, y:1}, moving:false,
-    currentZone:'refuge', unlockedZones:['refuge','foret'], defeatedBosses:[], clearedOnce:{},
+    // Toutes les zones sont explorables dès le départ (voyage rapide libre) :
+    // le niveau conseillé sert d'avertissement, pas de verrou. Les boss
+    // vaincus restent suivis pour le codex et la progression narrative.
+    currentZone:'refuge', unlockedZones: ZONES.map(z=>z.id), defeatedBosses:[], clearedOnce:{},
     cooldowns:{}, buffs:[], action:null,
     hotbar: [null, cls.branches[0]+'_t1', cls.branches[1]+'_t1', cls.branches[2]+'_t1', null],
     codex:{bestiary:[], lore:['embrasement']},
