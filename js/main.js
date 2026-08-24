@@ -264,10 +264,11 @@ function updateHud(){
   $('hud-hero-name').textContent = p.name;
   $('hud-level').textContent = `Niv. ${p.level}`;
   $('xp-fill').style.width = Math.min(100, p.xp/p.xpToNext*100)+'%';
-  $('mini-portrait').innerHTML=''; appendPortrait($('mini-portrait'), getClass(p.classId));
+  $('minimap-zone-label').textContent = game.zone ? game.zone.name : '';
 
   const bar = $('skill-bar');
   bar.querySelectorAll('.skill-slot').forEach((slot, i)=>{
+    slot.classList.toggle('basic', i===0 || i===4);
     let label = '';
     let ready = true;
     let empty = false;
@@ -330,6 +331,31 @@ function drawMinimap(){
   }
 }
 
+function drawBigMap(){
+  if(!game.map) return;
+  $('bigmap-title').textContent = game.zone ? `Carte — ${game.zone.name}` : 'Carte de la Zone';
+  const canvas = $('bigmap-canvas');
+  const cell = 6;
+  canvas.width = game.map.w*cell; canvas.height = game.map.h*cell;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#0d0a09'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  for(let y=0;y<game.map.h;y++) for(let x=0;x<game.map.w;x++){
+    ctx.fillStyle = game.map.grid[y][x]===1 ? '#4a3f37' : '#221c19';
+    ctx.fillRect(x*cell,y*cell,cell,cell);
+  }
+  if(game.map.portal){
+    ctx.fillStyle = game.zone.isFinal ? '#8a1fff' : '#ff8c2b';
+    ctx.beginPath(); ctx.arc((game.map.portal.x+0.5)*cell,(game.map.portal.y+0.5)*cell, cell*1.4, 0, Math.PI*2); ctx.fill();
+  }
+  for(const c of game.pickups){
+    if(c.kind!=='chest' || c.payload.opened) continue;
+    ctx.fillStyle = '#d8b45a';
+    ctx.fillRect(c.pos.x/40*cell-cell*0.5, c.pos.y/40*cell-cell*0.5, cell, cell);
+  }
+  ctx.fillStyle = '#ff8c2b';
+  ctx.beginPath(); ctx.arc(game.player.pos.x/40*cell, game.player.pos.y/40*cell, cell*1.1, 0, Math.PI*2); ctx.fill();
+}
+
 // ---------------- Panneaux ----------------
 function refreshInventory(){ renderInventory(game.player, refreshInventory); }
 function refreshSkillTree(){ renderSkillTree(game.player, refreshSkillTree); }
@@ -340,7 +366,10 @@ function openPanel(id){
   if(id==='panel-inventory') refreshInventory();
   else if(id==='panel-skills') refreshSkillTree();
   else if(id==='panel-codex') renderCodex($('codex-list-inner'), $('codex-content-inner'), game.player);
-  else if(id==='panel-map') renderWorldMap(game.player, (zoneId)=>{ game.enterZone(zoneId); closePanels(); });
+  else if(id==='panel-map'){
+    drawBigMap();
+    renderWorldMap(game.player, (zoneId)=>{ game.enterZone(zoneId); closePanels(); });
+  }
 }
 function closePanels(){ document.querySelectorAll('.panel').forEach(p=>p.classList.remove('open')); }
 function anyPanelOpen(){ return !!document.querySelector('.panel.open'); }
@@ -358,6 +387,7 @@ document.addEventListener('click', (e)=>{
     const target = map[openBtn.id];
     if(target) togglePanel(target);
   }
+  if(e.target.closest('#minimap')) togglePanel('panel-map');
 });
 
 window.addEventListener('keydown', (e)=>{

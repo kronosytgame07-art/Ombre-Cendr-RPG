@@ -65,7 +65,7 @@ export function drawHumanoid(opts){
   ctx.beginPath(); ctx.ellipse(cx, h-4, w*0.28, h*0.07, 0,0,Math.PI*2); ctx.fill();
 
   const legY = h*0.62;
-  const legSwing = walk*h*0.05;
+  const legSwing = walk*h*0.075;
   // jambes (alternées pendant la marche)
   px(ctx, cx-w*0.16, legY+legSwing, w*0.12, h*0.30, clothD);
   px(ctx, cx+w*0.04, legY-legSwing, w*0.12, h*0.30, clothD);
@@ -97,18 +97,18 @@ export function drawHumanoid(opts){
   const armLen = h*0.24, armW = w*0.12;
 
   // bras gauche (bouclier ou contrepoids) — pivote au repos/marche, et pendant un sort
-  let leftAngle = -0.12 - walk*0.22;
-  if(action && action.kind==='cast') leftAngle = lerp(leftAngle, -1.05, easeOutQuad(action.phase));
+  let leftAngle = -0.16 - walk*0.32;
+  if(action && action.kind==='cast') leftAngle = lerp(leftAngle, -1.2, easeOutQuad(action.phase));
   drawArm(ctx, cx-w*0.26, armY, armLen, armW, leftAngle, cloth, skinC, shield ? drawShieldAt : null);
 
   // bras droit (arme) — angle de repos, marche, coup ou sort
-  let rightAngle = 0.14 + walk*0.22;
-  if(action && action.kind==='swing') rightAngle = lerp(-1.0, 1.25, easeOutQuad(action.phase));
-  else if(action && action.kind==='cast') rightAngle = lerp(rightAngle, -1.25, easeOutQuad(action.phase));
+  let rightAngle = 0.18 + walk*0.32;
+  if(action && action.kind==='swing') rightAngle = lerp(-1.35, 1.55, easeOutQuad(action.phase));
+  else if(action && action.kind==='cast') rightAngle = lerp(rightAngle, -1.4, easeOutQuad(action.phase));
   drawArm(ctx, cx+w*0.26, armY, armLen, armW, rightAngle, cloth, skinC, drawWeaponAt);
 
   // tête (légère oscillation avec la marche)
-  const headBob = Math.abs(walk)*h*0.015;
+  const headBob = Math.abs(walk)*h*0.022;
   const headY = h*0.08+headBob, headR = w*0.18;
   circle(ctx, cx, headY+headR, headR, skinC);
   if(helmet){
@@ -291,7 +291,7 @@ export function drawBoss(id, opts){
   if(cache.has(key)) return cache.get(key);
   const seed = hashStr(id);
   const rnd = seededRand(seed);
-  const w=136,h=136;
+  const w=168,h=168;
   const {canvas, ctx} = newCanvas(w,h);
   const cx=w/2, cy=h/2;
   const hue = Math.floor(rnd()*360);
@@ -435,13 +435,13 @@ export function makeTile(kind, variant=0){
   ctx.fillStyle = pal[0]; ctx.fillRect(0,0,size,size);
 
   // grain fin
-  for(let i=0;i<110;i++){
+  for(let i=0;i<150;i++){
     const x=Math.floor(rnd()*size), y=Math.floor(rnd()*size);
     ctx.fillStyle = pal[1+Math.floor(rnd()*(pal.length-1))] || pal[1];
     ctx.fillRect(x,y, 1+Math.floor(rnd()*2), 1+Math.floor(rnd()*2));
   }
   // taches plus larges (mousse, éclats, flaques) pour casser la répétition
-  const blotchCount = 2+Math.floor(rnd()*3);
+  const blotchCount = 4+Math.floor(rnd()*4);
   for(let i=0;i<blotchCount;i++){
     const x=rnd()*size, y=rnd()*size, r=3+rnd()*6;
     ctx.globalAlpha = 0.35+rnd()*0.25;

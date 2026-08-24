@@ -7,7 +7,7 @@ export const ENEMY_TYPES = {
     sprite:{kind:'humanoid', weapon:'dague', undead:true, cloth:'#3a3830', accent:'#5a2e2e'},
     behavior:'melee', speed:0.9, aggroRange:220, atkRange:34, atkCooldown:1.2,
     base:{hp:26, dmg:[4,7], armor:2, xp:8},
-    resist:{}, zones:['cimetiere'],
+    resist:{}, zones:['foret','cimetiere'],
     bestiary:"Autrefois habitant de Val-Aurore, il erre désormais sans but, guidé par une rage qui n'est plus tout à fait la sienne. Lent mais nombreux."
   },
   chien_suie: {
@@ -15,7 +15,7 @@ export const ENEMY_TYPES = {
     sprite:{kind:'creature', shape:'hound', main:'#2b2521', eye:'#ff6a2b'},
     behavior:'melee', speed:1.6, aggroRange:260, atkRange:30, atkCooldown:0.9,
     base:{hp:18, dmg:[3,6], armor:0, xp:6},
-    resist:{}, zones:['cimetiere'],
+    resist:{}, zones:['foret','cimetiere'],
     bestiary:"Meute rapide qui chasse en groupe parmi les tombes. Individuellement faible, il devient dangereux lorsqu'il encercle sa proie."
   },
   araignee_calcinee: {
@@ -23,7 +23,7 @@ export const ENEMY_TYPES = {
     sprite:{kind:'creature', shape:'araignee', main:'#3a2418', eye:'#ffcf5a'},
     behavior:'melee', speed:1.1, aggroRange:200, atkRange:28, atkCooldown:1.1,
     base:{hp:20, dmg:[3,7], armor:1, xp:7, poisonOnHit:0.25},
-    resist:{ombre:15}, zones:['desert'],
+    resist:{ombre:15}, zones:['foret','desert'],
     bestiary:"Elle tisse ses toiles entre les rochers brûlants du désert. Sa morsure laisse une brûlure noire qui continue de ronger la chair."
   },
   chauvesouris_braise: {
@@ -174,11 +174,19 @@ export const ENEMY_TYPES = {
 
 export const BOSSES = {
   kravoth: {
-    id:'kravoth', name:'Kravoth, le Chien-Bûcher', zone:'cimetiere', glow:'#ff6a2b',
-    base:{hp:420, dmg:[14,22], armor:6, xp:220, speed:1.3, atkRange:50, atkCooldown:1.2},
+    id:'kravoth', name:'Kravoth, le Chien-Bûcher', zone:'foret', glow:'#ff6a2b',
+    base:{hp:380, dmg:[13,20], armor:5, xp:180, speed:1.3, atkRange:50, atkCooldown:1.2},
     resist:{feu:30},
-    intro:"Un grondement secoue le Cimetière des Cendres. Kravoth n'a pas dormi depuis l'Embrasement — et il ne compte pas commencer avec vous entre les crocs.",
+    intro:"Un grondement secoue la Forêt Calcinée. Kravoth n'a pas dormi depuis l'Embrasement — et il ne compte pas commencer avec vous entre les crocs.",
     bestiary:"Le plus vieux des Chiens de Suie, grandi jusqu'à la taille d'un ours en dévorant tout ce qui s'aventurait dans son territoire.",
+    lootTier:1
+  },
+  gardien_cimetiere: {
+    id:'gardien_cimetiere', name:'Ossemage, Gardien du Cimetière', zone:'cimetiere', glow:'#8a8a80',
+    base:{hp:460, dmg:[15,23], armor:9, xp:240, speed:1.0, atkRange:45, atkCooldown:1.2},
+    resist:{ombre:25, physique:10},
+    intro:"La terre du Cimetière des Cendres se soulève. Ossemage, assemblage de tous les ossements qu'il a jamais gardés, se redresse pour la première fois.",
+    bestiary:"Fossoyeur de Val-Aurore avant l'Embrasement, il continue son office bien après que ses mains ont cessé d'être de chair.",
     lootTier:2
   },
   malessia: {
