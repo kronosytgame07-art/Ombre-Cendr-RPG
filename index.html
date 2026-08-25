@@ -149,6 +149,7 @@
       </div>
 
       <div class="zone-banner" id="zone-banner"></div>
+      <div class="interact-hint" id="interact-hint">Appuyez sur <b>E</b> pour parler à <span id="interact-name"></span></div>
       <div class="floating-texts" id="floating-texts"></div>
       <div class="minimap" id="minimap" title="Agrandir la carte">
         <div class="minimap-label" id="minimap-zone-label"></div>
@@ -164,7 +165,6 @@
         <div class="char-sheet" id="char-sheet"></div>
         <div class="inv-grid" id="inv-grid"></div>
       </div>
-      <div class="item-tooltip" id="item-tooltip"></div>
     </div>
 
     <!-- Arbre de compétences -->
@@ -195,6 +195,13 @@
       <div class="worldmap-list" id="worldmap-list"></div>
     </div>
 
+    <!-- Dialogue PNJ (boutique / quêtes) -->
+    <div id="panel-npc" class="panel npc-panel">
+      <div class="panel-header"><span id="npc-name"></span> <button class="panel-close" data-close="panel-npc">✕</button></div>
+      <p class="npc-greeting" id="npc-greeting"></p>
+      <div class="npc-body" id="npc-body"></div>
+    </div>
+
     <!-- Menu pause -->
     <div id="panel-pause" class="panel">
       <div class="panel-header">Pause</div>
@@ -222,6 +229,7 @@
     </div>
 
     <!-- Dialogue / Loot popup -->
+    <div class="item-tooltip" id="item-tooltip"></div>
     <div id="loot-popup" class="loot-popup"></div>
     <div id="tutorial-hint" class="tutorial-hint"></div>
   </div>

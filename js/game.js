@@ -4,12 +4,14 @@ import { makeTile } from './engine/sprites.js';
 import { generateZoneMap, isWalkable } from './engine/mapgen.js';
 import { getZone, nextZone, zoneLevel } from './data/zones.js';
 import { ENEMY_TYPES, BOSSES } from './data/enemies.js';
-import { createEnemy, createBoss, enemySpriteCanvas, bossSpriteCanvas, playerSpriteCanvas, createPickup } from './entities.js';
+import { createEnemy, createBoss, enemySpriteCanvas, bossSpriteCanvas, playerSpriteCanvas, npcSpriteCanvas, createPickup } from './entities.js';
 import { updateEnemyAI, applyEnemyHitOnPlayer, castSkill, basicAttackSkillId, resolveSkillImpl, applyPlayerHitOnEnemy } from './systems/combat.js';
 import { spawnLootPickups, rollLootForEnemy } from './systems/loot.js';
 import { generateItem } from './data/items.js';
 import { Rng } from './engine/rng.js';
 import { getDifficultyMult } from './engine/difficulty.js';
+import { npcsForZone } from './data/npcs.js';
+import { registerKillForQuests } from './systems/quests.js';
 
 const PLAYER_RADIUS = 16;
 const PORTAL_TRIGGER_DIST = 70;
@@ -35,23 +37,26 @@ function decorAt(x,y,biome){
   if(h % 100 >= density) return null;
   return h % 3;
 }
+// Arbres imposants (nettement plus hauts/larges que le héros, comme dans un
+// vrai Diablo) : la canopée déborde volontairement sur les cases voisines,
+// dessinée avant elles car le rendu se fait ligne par ligne du haut vers le bas.
 function drawTree(ctx, style){
-  const scale = 0.85 + (style%3)*0.18;
+  const scale = 1.9 + (style%3)*0.35;
   ctx.save();
   ctx.scale(scale, scale);
   ctx.globalAlpha = 0.28;
   ctx.fillStyle = '#000';
-  ctx.beginPath(); ctx.ellipse(1,4,9,3.5,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(1,4,10,4,0,0,Math.PI*2); ctx.fill();
   ctx.globalAlpha = 1;
   ctx.fillStyle = '#1c140e';
-  ctx.fillRect(-2,-4,4,10);
+  ctx.fillRect(-3,-6,6,14);
   const canopy = style===1 ? '#243a1e' : (style===2 ? '#2e2015' : '#1e2e1a');
   ctx.fillStyle = canopy;
-  ctx.beginPath(); ctx.moveTo(0,-30); ctx.lineTo(-11,-10); ctx.lineTo(11,-10); ctx.closePath(); ctx.fill();
-  ctx.beginPath(); ctx.moveTo(0,-22); ctx.lineTo(-9,-4); ctx.lineTo(9,-4); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(0,-36); ctx.lineTo(-14,-12); ctx.lineTo(14,-12); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(0,-26); ctx.lineTo(-11,-4); ctx.lineTo(11,-4); ctx.closePath(); ctx.fill();
   ctx.fillStyle = style===2 ? '#5a2e18' : '#3a2a14';
-  ctx.beginPath(); ctx.arc(-3,-18,1.3,0,Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(4,-12,1.1,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(-4,-20,1.6,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(5,-14,1.4,0,Math.PI*2); ctx.fill();
   ctx.restore();
 }
 function drawFloorDecor(ctx, px, py, style, biome){
@@ -60,7 +65,12 @@ function drawFloorDecor(ctx, px, py, style, biome){
 
   if(biome==='foret_sol'){
     drawTree(ctx, style);
-  } else if(biome==='neige'){
+    ctx.restore();
+    return;
+  }
+  // Rochers/plantes agrandis : proportionnés au héros plutôt que perdus au sol.
+  ctx.scale(2.1, 2.1);
+  if(biome==='neige'){
     ctx.globalAlpha=0.7;
     if(style===0){ ctx.fillStyle='#6b7580'; ctx.beginPath(); ctx.ellipse(0,0,6,4,0,0,Math.PI*2); ctx.fill();
       ctx.fillStyle='rgba(255,255,255,0.6)'; ctx.beginPath(); ctx.ellipse(-1,-2,4,2,0,0,Math.PI*2); ctx.fill(); }
@@ -98,6 +108,40 @@ function drawFloorDecor(ctx, px, py, style, biome){
   ctx.restore();
 }
 
+// Toit à pignon dessiné au-dessus de chaque bâtiment de ville (issu de
+// mapgen.generateTownLayout) : sans ça, les maisons ne sont que des murs de
+// donjon repeints. Peint dans une passe séparée après toute la grille de sol
+// pour toujours recouvrir correctement les tuiles du dessus.
+function drawBuildingRoof(ctx, b){
+  const bx = b.x*TILE_SIZE, by = b.y*TILE_SIZE, bw = b.w*TILE_SIZE, bh = b.h*TILE_SIZE;
+  const roofH = bh*0.6;
+  const apexY = by - roofH*0.35;
+  const midX = bx + bw/2;
+  ctx.save();
+  ctx.fillStyle = '#4a2016';
+  ctx.beginPath();
+  ctx.moveTo(bx-3, by+roofH);
+  ctx.lineTo(bx-3, by+roofH*0.35);
+  ctx.lineTo(midX, apexY);
+  ctx.lineTo(bx+bw+3, by+roofH*0.35);
+  ctx.lineTo(bx+bw+3, by+roofH);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#652c1e';
+  ctx.beginPath();
+  ctx.moveTo(midX, apexY);
+  ctx.lineTo(bx+bw+3, by+roofH*0.35);
+  ctx.lineTo(bx+bw+3, by+roofH);
+  ctx.lineTo(midX, by+roofH*0.7);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#2e140d'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(midX, apexY); ctx.lineTo(midX, by+roofH*0.7); ctx.stroke();
+  ctx.fillStyle = '#241009';
+  ctx.fillRect(bx+bw*0.68, apexY+roofH*0.15, bw*0.09, roofH*0.4);
+  ctx.restore();
+}
+
 export class Game{
   constructor(canvas, player){
     this.canvas = canvas;
@@ -108,6 +152,8 @@ export class Game{
     this.projectiles = [];
     this.pickups = [];
     this.allies = [];
+    this.npcs = [];
+    this.nearbyNpc = null;
     this.traps = [];
     this.fx = [];
     this.floatingTexts = [];
@@ -138,13 +184,19 @@ export class Game{
     const zone = getZone(zoneId);
     this.zone = zone;
     this.player.currentZone = zoneId;
-    const seed = (Date.now() ^ (zoneId.length*7919)) >>> 0;
+    // Les villes gardent une disposition stable d'une visite à l'autre (seed fixe) :
+    // un vrai lieu qu'on retrouve, avec ses PNJ toujours au même endroit. Les
+    // donjons restent régénérés à chaque entrée pour la rejouabilité.
+    let hash = 0; for(let i=0;i<zoneId.length;i++) hash = (hash*31 + zoneId.charCodeAt(i))>>>0;
+    const seed = zone.kind==='town' ? hash : (Date.now() ^ (zoneId.length*7919)) >>> 0;
     this.map = generateZoneMap(zone, seed);
     this.enemies = []; this.projectiles = []; this.pickups = []; this.allies = [];
     this.traps = []; this.fx = []; this.floatingTexts = [];
     this.bossActive = null;
     this.bossSpawnedThisVisit = false;
     this.deathHandled = false;
+    this.nearbyNpc = null;
+    this.npcs = npcsForZone(zoneId).map(n => this.placeNpc(n));
 
     this.player.pos.x = (this.map.spawn.x+0.5)*TILE_SIZE;
     this.player.pos.y = (this.map.spawn.y+0.5)*TILE_SIZE;
@@ -172,8 +224,37 @@ export class Game{
     this.pendingNotices.push({type:'banner', text:bannerText});
   }
 
+  // Place un PNJ près du point d'apparition de la zone (décalage défini dans
+  // npcs.js), en se rabattant sur la case praticable la plus proche si le
+  // décalage tombe sur un mur.
+  placeNpc(n){
+    let tx = Math.round(this.map.spawn.x + n.offset.x);
+    let ty = Math.round(this.map.spawn.y + n.offset.y);
+    tx = Math.max(1, Math.min(this.map.w-2, tx));
+    ty = Math.max(1, Math.min(this.map.h-2, ty));
+    if(!isWalkable(this.map, tx, ty)){
+      let best=null, bestD=Infinity;
+      for(const [x,y] of this.map.floorTiles){
+        const d = (x-tx)*(x-tx) + (y-ty)*(y-ty);
+        if(d<bestD){ bestD=d; best=[x,y]; }
+      }
+      if(best){ tx=best[0]; ty=best[1]; }
+    }
+    return { ...n, pos:{x:(tx+0.5)*TILE_SIZE, y:(ty+0.5)*TILE_SIZE}, facing:{x:0,y:1}, stock:null };
+  }
+
+  updateNpcProximity(){
+    let best=null, bestD=70;
+    for(const n of this.npcs){
+      const d = Math.hypot(n.pos.x-this.player.pos.x, n.pos.y-this.player.pos.y);
+      if(d<bestD){ bestD=d; best=n; }
+    }
+    this.nearbyNpc = best;
+  }
+
   onEnemyKilled(enemy){
     spawnLootPickups(this, enemy);
+    registerKillForQuests(this.player, enemy.defId);
     if(!this.player.codex.bestiary.includes(enemy.defId) && ENEMY_TYPES[enemy.defId]){
       this.player.codex.bestiary.push(enemy.defId);
     }
@@ -209,6 +290,7 @@ export class Game{
     }
 
     this.handleMovement(dt);
+    this.updateNpcProximity();
     this.handleInputActions();
 
     for(const e of this.enemies) updateEnemyAI(this, e, dt);
@@ -270,6 +352,9 @@ export class Game{
     }
     if(Input.wasPressed('r')) this.usePotion('vie');
     if(Input.wasPressed('f')) this.usePotion('mana');
+    if(Input.wasPressed('e') && this.nearbyNpc){
+      this.pendingNotices.push({type:'npc', npc:this.nearbyNpc});
+    }
   }
 
   usePotion(kind){
@@ -481,6 +566,10 @@ export class Game{
       }
     }
 
+    if(this.map.buildings && this.map.buildings.length){
+      for(const b of this.map.buildings) drawBuildingRoof(ctx, b);
+    }
+
     if(this.map.portal){
       const px=(this.map.portal.x+0.5)*TILE_SIZE, py=(this.map.portal.y+0.5)*TILE_SIZE;
       const pulse = 10+Math.sin(this.time*3)*4;
@@ -499,10 +588,11 @@ export class Game{
       ctx.beginPath(); ctx.arc(p.pos.x,p.pos.y,p.kind==='chest'?10:6,0,Math.PI*2); ctx.fill();
     }
 
-    const drawList = [...this.enemies, ...this.allies, {isPlayer:true, pos:this.player.pos, facing:this.player.facing}];
+    const drawList = [...this.enemies, ...this.allies, ...this.npcs.map(n=>({...n, isNpc:true})), {isPlayer:true, pos:this.player.pos, facing:this.player.facing}];
     drawList.sort((a,b)=>a.pos.y-b.pos.y);
     for(const ent of drawList){
       if(ent.isPlayer) this.drawPlayer(ctx);
+      else if(ent.isNpc) this.drawNpc(ctx, ent);
       else if(ent.kind==='squelette' || ent.kind==='loup') this.drawAlly(ctx, ent);
       else this.drawEnemy(ctx, ent);
     }
@@ -512,6 +602,36 @@ export class Game{
     for(const f of this.fx) this.drawFx(ctx, f);
 
     ctx.restore();
+  }
+
+  drawNpc(ctx, npc){
+    const img = npcSpriteCanvas(npc);
+    const w=68, h=86;
+    ctx.save();
+    ctx.translate(npc.pos.x, npc.pos.y);
+    ctx.drawImage(img, -w/2, -h+12, w, h);
+    ctx.restore();
+
+    // Marqueur d'interaction façon RPG : $ boutique, ! quête dispo, ? à rendre.
+    let marker=null, color='#ffd85a';
+    if(npc.role==='quete'){
+      const ids = npc.questIds||[];
+      const hasTurnIn = ids.some(qid=>{ const q=this.player.quests[qid]; return q && q.done && !q.turnedIn; });
+      const hasAvailable = ids.some(qid=> !this.player.quests[qid]);
+      if(hasTurnIn){ marker='?'; color='#8fe0ff'; }
+      else if(hasAvailable){ marker='!'; color='#ffd85a'; }
+    } else {
+      marker='$'; color='#7fd97f';
+    }
+    if(marker){
+      ctx.save();
+      ctx.translate(npc.pos.x, npc.pos.y-h+4);
+      ctx.font = 'bold 22px sans-serif'; ctx.textAlign = 'center';
+      const bob = Math.sin(this.time*3)*3;
+      ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillText(marker, 1, bob+1);
+      ctx.fillStyle = color; ctx.fillText(marker, 0, bob);
+      ctx.restore();
+    }
   }
 
   drawPlayer(ctx){

@@ -4,10 +4,10 @@ import { ZONES, getZone } from './data/zones.js';
 import { drawHumanoid } from './engine/sprites.js';
 import { preload, getImageSync } from './engine/assets.js';
 import { createPlayer, playerSpriteCanvas } from './entities.js';
-import { recomputeStats } from './systems/leveling.js';
+import { recomputeStats, grantXp } from './systems/leveling.js';
 import { Game } from './game.js';
 import { listSaveSlots, saveGame, loadGame, deleteSave, findFirstEmptySlot, saveOptions, loadOptions } from './systems/save.js';
-import { renderInventory, renderSkillTree, renderCodex, renderWorldMap } from './panels.js';
+import { renderInventory, renderSkillTree, renderCodex, renderWorldMap, renderShop, renderQuestGiver } from './panels.js';
 import { setDifficulty } from './engine/difficulty.js';
 
 const HERO_IMAGE_PATHS = CLASSES.filter(c=>c.sprite).map(c=>c.sprite);
@@ -116,6 +116,7 @@ function loadSlot(slot){
   if(!data) return;
   currentSlot = slot;
   const player = data.player;
+  if(!player.quests) player.quests = {}; // compat sauvegardes antérieures aux quêtes
   recomputeStats(player);
   startGameWithPlayer(player);
 }
@@ -214,6 +215,7 @@ function processNotices(){
     else if(n.type==='death') openPanel('panel-death');
     else if(n.type==='loot') showLootChip(n.item);
     else if(n.type==='inventoryfull') showHint('Inventaire plein !');
+    else if(n.type==='npc') openDialogue(n.npc);
   }
   for(const ev of game.pendingLevelEvents.splice(0)){
     showBanner(`Niveau ${ev.level} !`);
@@ -265,6 +267,9 @@ function updateHud(){
   $('hud-level').textContent = `Niv. ${p.level}`;
   $('xp-fill').style.width = Math.min(100, p.xp/p.xpToNext*100)+'%';
   $('minimap-zone-label').textContent = game.zone ? game.zone.name : '';
+  const hint = $('interact-hint');
+  if(game.nearbyNpc){ hint.classList.add('show'); $('interact-name').textContent = game.nearbyNpc.name; }
+  else hint.classList.remove('show');
 
   const bar = $('skill-bar');
   bar.querySelectorAll('.skill-slot').forEach((slot, i)=>{
@@ -360,6 +365,23 @@ function drawBigMap(){
 function refreshInventory(){ renderInventory(game.player, refreshInventory); }
 function refreshSkillTree(){ renderSkillTree(game.player, refreshSkillTree); }
 
+let currentNpc = null;
+function openDialogue(npc){
+  currentNpc = npc;
+  openPanel('panel-npc');
+}
+function refreshNpcBody(){
+  if(!currentNpc) return;
+  if(currentNpc.role==='quete') renderQuestGiver(currentNpc, game.player, refreshNpcBody, handleQuestRewardXp);
+  else renderShop(currentNpc, game.player, refreshNpcBody);
+}
+function handleQuestRewardXp(xp){
+  if(xp>0){
+    const events = grantXp(game.player, xp);
+    game.pendingLevelEvents.push(...events);
+  }
+}
+
 function openPanel(id){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('open'));
   $(id).classList.add('open');
@@ -369,6 +391,11 @@ function openPanel(id){
   else if(id==='panel-map'){
     drawBigMap();
     renderWorldMap(game.player, (zoneId)=>{ game.enterZone(zoneId); closePanels(); });
+  }
+  else if(id==='panel-npc'){
+    $('npc-name').textContent = currentNpc.name;
+    $('npc-greeting').textContent = currentNpc.greeting;
+    refreshNpcBody();
   }
 }
 function closePanels(){ document.querySelectorAll('.panel').forEach(p=>p.classList.remove('open')); }

@@ -28,7 +28,7 @@ export function createPlayer(classId, name){
     // le niveau conseillé sert d'avertissement, pas de verrou. Les boss
     // vaincus restent suivis pour le codex et la progression narrative.
     currentZone:'refuge', unlockedZones: ZONES.map(z=>z.id), defeatedBosses:[], clearedOnce:{},
-    cooldowns:{}, buffs:[], action:null,
+    cooldowns:{}, buffs:[], action:null, quests:{},
     hotbar: [null, cls.branches[0]+'_t1', cls.branches[1]+'_t1', cls.branches[2]+'_t1', null],
     codex:{bestiary:[], lore:['embrasement']},
     playtime:0,
@@ -71,6 +71,19 @@ export function enemySpriteCanvas(def, pose){
   if(enemySpriteCache.has(def.id)) return enemySpriteCache.get(def.id);
   const canvas = drawCreature({w:76, h:64, shape:def.sprite.shape, main:def.sprite.main, eye:def.sprite.eye});
   enemySpriteCache.set(def.id, canvas);
+  return canvas;
+}
+const npcSpriteCache = new Map();
+// PNJ statiques (marchands, forgeron, donneurs de quêtes) : silhouette figée
+// (pas de pose de combat), mise en cache une fois pour toutes par id.
+export function npcSpriteCanvas(npc){
+  if(npcSpriteCache.has(npc.id)) return npcSpriteCache.get(npc.id);
+  const s = npc.sprite;
+  const canvas = drawHumanoid({
+    w:68, h:86, skin:'#c9a880', cloth:s.cloth, accent:s.accent, trim:s.trim||'#8a8a80',
+    hair:s.hair||'#2b1c14', weapon:s.weapon||'none', hood:!!s.hood, cloak:!!s.cloak, armor:s.armor||'leger',
+  });
+  npcSpriteCache.set(npc.id, canvas);
   return canvas;
 }
 function spriteHumanoidOpts(s){
