@@ -18,6 +18,16 @@ SOURCES = {
     "necrophore": "necrophore_master_8x6.png",
     "sentinelle": "sentinelle_master_8x6.png",
 }
+ENEMY_SOURCES = {
+    "voile_ombre": "voile_ombre_master_8x6.png",
+    "squelette_guerrier": "squelette_guerrier_master_8x6.png",
+    "gardien_pierre": "gardien_pierre_master_8x6.png",
+    "troll_roc": "troll_roc_master_8x6.png",
+    "geant_givre": "geant_givre_master_8x6.png",
+    "cultiste_nihilash": "cultiste_nihilash_master_8x6.png",
+    "golem_cendre": "golem_cendre_master_8x6.png",
+    "minotaure_lave": "minotaure_lave_master_8x6.png",
+}
 SRC = ROOT / "assets/source/generated-v2"
 
 
@@ -87,3 +97,8 @@ if __name__ == "__main__":
     for hero, filename in SOURCES.items():
         calibrate(SRC / filename, ROOT / f"assets/sprites/heroes/{hero}/{hero}_8dir_actions_v2.png")
         print(f"calibré: {hero}")
+    for enemy, filename in ENEMY_SOURCES.items():
+        destination=ROOT/f"assets/sprites/enemies/v2/{enemy}_8dir_actions.png"
+        calibrate(SRC/filename,destination)
+        destination.with_name("portrait_v2.png").unlink(missing_ok=True)
+        print(f"calibré: {enemy}")

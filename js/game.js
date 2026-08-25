@@ -16,6 +16,7 @@ import { getImageSync } from './engine/assets.js';
 
 const PLAYER_RADIUS = 16;
 const PORTAL_TRIGGER_DIST = 70;
+const px=value=>Math.round(value);
 
 // Hash entier déterministe par case : donne à chaque tuile un variant de
 // texture stable (pas de scintillement d'une frame à l'autre) et permet de
@@ -123,8 +124,8 @@ function drawBuildingRoof(ctx, b){
   const type=variants[Math.abs((b.x*31+b.y*17))%variants.length];
   const img=getImageSync(`assets/sprites/world/village-v2/${type}.png`);
   if(!img) return;
-  const footprintW=b.w*TILE_SIZE,cx=b.x*TILE_SIZE+footprintW/2;
-  const baseY=(b.y+b.h)*TILE_SIZE+4;
+  const footprintW=b.w*TILE_SIZE,cx=px(b.x*TILE_SIZE+footprintW/2);
+  const baseY=px((b.y+b.h)*TILE_SIZE+4);
   const width=Math.min(210,Math.max(168,footprintW-8));
   const height=Math.round(width*(img.height/img.width));
   ctx.save();ctx.imageSmoothingEnabled=false;
@@ -132,27 +133,29 @@ function drawBuildingRoof(ctx, b){
   ctx.restore();
 }
 
-function drawFortifiedPerimeter(ctx,map){
+function drawFortifiedPerimeter(ctx,map,view){
   const wall=getImageSync('assets/sprites/world/village-v2/wall_straight.png');
   const tower=getImageSync('assets/sprites/world/village-v2/tower.png');
   const gate=getImageSync('assets/sprites/world/village-v2/gatehouse.png');
   if(!wall||!tower||!gate)return;
-  const worldW=map.w*TILE_SIZE,worldH=map.h*TILE_SIZE,segment=160;
+  const worldW=map.w*TILE_SIZE,worldH=map.h*TILE_SIZE,segment=150,wallWidth=168;
   ctx.save();ctx.imageSmoothingEnabled=false;
-  for(let x=80;x<worldW-80;x+=segment){
+  const inView=(x,y,w,h)=>!view||x+w>=view.left&&x<=view.right&&y+h>=view.top&&y<=view.bottom;
+  for(let x=75;x<worldW-75;x+=segment){
     if(Math.abs(x-worldW/2)>110){
-      ctx.drawImage(wall,x-segment/2,-28,segment,132);
-      ctx.drawImage(wall,x-segment/2,worldH-102,segment,132);
+      const left=px(x-wallWidth/2);
+      if(inView(left,-28,wallWidth,132))ctx.drawImage(wall,left,-28,wallWidth,132);
+      if(inView(left,worldH-102,wallWidth,132))ctx.drawImage(wall,left,worldH-102,wallWidth,132);
     }
   }
   for(let y=100;y<worldH-100;y+=segment){
-    ctx.save();ctx.translate(68,y);ctx.rotate(Math.PI/2);ctx.drawImage(wall,-66,-80,132,160);ctx.restore();
-    ctx.save();ctx.translate(worldW-68,y);ctx.rotate(-Math.PI/2);ctx.drawImage(wall,-66,-80,132,160);ctx.restore();
+    if(inView(0,y-80,148,160)){ctx.save();ctx.translate(68,y);ctx.rotate(Math.PI/2);ctx.drawImage(wall,-66,-80,132,160);ctx.restore();}
+    if(inView(worldW-148,y-80,148,160)){ctx.save();ctx.translate(worldW-68,y);ctx.rotate(-Math.PI/2);ctx.drawImage(wall,-66,-80,132,160);ctx.restore();}
   }
   const tw=128,th=142;
-  for(const [x,y] of [[0,0],[worldW-tw,0],[0,worldH-th],[worldW-tw,worldH-th]])ctx.drawImage(tower,x,y,tw,th);
-  ctx.drawImage(gate,worldW/2-92,-42,184,174);
-  ctx.drawImage(gate,worldW/2-92,worldH-132,184,174);
+  for(const [x,y] of [[0,0],[worldW-tw,0],[0,worldH-th],[worldW-tw,worldH-th]])if(inView(x,y,tw,th))ctx.drawImage(tower,x,y,tw,th);
+  if(inView(worldW/2-92,-42,184,174))ctx.drawImage(gate,worldW/2-92,-42,184,174);
+  if(inView(worldW/2-92,worldH-132,184,174))ctx.drawImage(gate,worldW/2-92,worldH-132,184,174);
   ctx.restore();
 }
 
@@ -173,7 +176,10 @@ export class Game{
     this.floatingTexts = [];
     this.pendingLevelEvents = [];
     this.pendingNotices = [];
-    this.camera = {x:0, y:0, zoom:2.7, shakeMag:0};
+    // Un zoom entier garantit un échantillonnage nearest-neighbour stable.
+    // 2× conserve l'échelle du monde ; 2,7× créait des demi-pixels et donnait
+    // au héros une taille disproportionnée face aux bâtiments.
+    this.camera = {x:0, y:0, zoom:2, shakeMag:0};
     this.shakeEnabled = true;
     this.map = null;
     this.zone = null;
@@ -653,24 +659,29 @@ export class Game{
     ctx.fillStyle = '#000'; ctx.fillRect(0,0,cvw,cvh);
     if(!this.map) return;
 
-    this.camera.x = this.player.pos.x - cvw/(2*this.camera.zoom);
-    this.camera.y = this.player.pos.y - cvh/(2*this.camera.zoom);
-    const maxX = this.map.w*TILE_SIZE - cvw/this.camera.zoom;
-    const maxY = this.map.h*TILE_SIZE - cvh/this.camera.zoom;
-    this.camera.x = Math.max(0, Math.min(Math.max(0,maxX), this.camera.x));
-    this.camera.y = Math.max(0, Math.min(Math.max(0,maxY), this.camera.y));
+    const zoom=Math.max(1,Math.round(this.camera.zoom));
+    this.camera.zoom=zoom;
+    this.camera.x = this.player.pos.x - cvw/(2*zoom);
+    this.camera.y = this.player.pos.y - cvh/(2*zoom);
+    const maxX = this.map.w*TILE_SIZE - cvw/zoom;
+    const maxY = this.map.h*TILE_SIZE - cvh/zoom;
+    this.camera.x = px(Math.max(0, Math.min(Math.max(0,maxX), this.camera.x)));
+    this.camera.y = px(Math.max(0, Math.min(Math.max(0,maxY), this.camera.y)));
 
     ctx.save();
-    ctx.scale(this.camera.zoom, this.camera.zoom);
+    ctx.imageSmoothingEnabled=false;
+    ctx.scale(zoom,zoom);
     const shakeMag = this.camera.shakeMag||0;
-    const shakeX = shakeMag>0 ? (Math.random()*2-1)*shakeMag : 0;
-    const shakeY = shakeMag>0 ? (Math.random()*2-1)*shakeMag : 0;
+    const shakeX = shakeMag>0 ? px((Math.random()*2-1)*shakeMag) : 0;
+    const shakeY = shakeMag>0 ? px((Math.random()*2-1)*shakeMag) : 0;
     ctx.translate(-this.camera.x+shakeX, -this.camera.y+shakeY);
 
     const x0 = Math.max(0, Math.floor(this.camera.x/TILE_SIZE)-1);
     const y0 = Math.max(0, Math.floor(this.camera.y/TILE_SIZE)-1);
-    const x1 = Math.min(this.map.w, Math.ceil((this.camera.x+cvw/this.camera.zoom)/TILE_SIZE)+1);
-    const y1 = Math.min(this.map.h, Math.ceil((this.camera.y+cvh/this.camera.zoom)/TILE_SIZE)+1);
+    const x1 = Math.min(this.map.w, Math.ceil((this.camera.x+cvw/zoom)/TILE_SIZE)+1);
+    const y1 = Math.min(this.map.h, Math.ceil((this.camera.y+cvh/zoom)/TILE_SIZE)+1);
+    const view={left:this.camera.x-140,top:this.camera.y-180,right:this.camera.x+cvw/zoom+140,bottom:this.camera.y+cvh/zoom+140};
+    const visible=pos=>pos.x>=view.left&&pos.x<=view.right&&pos.y>=view.top&&pos.y<=view.bottom;
     for(let y=y0;y<y1;y++){
       for(let x=x0;x<x1;x++){
         const walkable = isWalkable(this.map, x, y);
@@ -687,11 +698,7 @@ export class Game{
       }
     }
 
-    if(this.zone.kind==='town')drawFortifiedPerimeter(ctx,this.map);
-    if(this.map.buildings && this.map.buildings.length){
-      for(const b of this.map.buildings) drawBuildingRoof(ctx, b);
-    }
-
+    if(this.zone.kind==='town')drawFortifiedPerimeter(ctx,this.map,view);
     if(this.map.portal){
       const px=(this.map.portal.x+0.5)*TILE_SIZE, py=(this.map.portal.y+0.5)*TILE_SIZE;
       const props=getImageSync('assets/sprites/world/world_props_atlas.png');
@@ -708,11 +715,13 @@ export class Game{
     }
 
     for(const t of this.traps){
+      if(!visible(t.pos))continue;
       if(t.armTime>0) continue;
       ctx.fillStyle='rgba(255,140,43,0.5)';
       ctx.beginPath(); ctx.arc(t.pos.x,t.pos.y,8,0,Math.PI*2); ctx.fill();
     }
     for(const p of this.pickups){
+      if(!visible(p.pos))continue;
       const props=getImageSync('assets/sprites/world/world_props_atlas.png');
       if(p.kind==='chest' && props){
         const elapsed=Math.max(0,(performance.now()-p.bornAt)/1000);
@@ -725,22 +734,34 @@ export class Game{
       }
     }
 
+    const totalCandidates=(this.map.campProps||[]).length+(this.map.buildings||[]).length+
+      this.enemies.length+this.allies.length+this.npcs.length+1;
     const campDrawables = (this.map.campProps||[]).map(p=>({
       ...p, isCampProp:true, pos:{x:(p.x+0.5)*TILE_SIZE,y:(p.y+0.82)*TILE_SIZE}
-    }));
-    const drawList = [...campDrawables, ...this.enemies, ...this.allies, ...this.npcs.map(n=>({...n, isNpc:true})), {isPlayer:true, pos:this.player.pos, facing:this.player.facing}];
-    drawList.sort((a,b)=>a.pos.y-b.pos.y);
+    })).filter(ent=>visible(ent.pos));
+    const buildingDrawables=(this.map.buildings||[]).map(b=>({isBuilding:true,building:b,
+      pos:{x:(b.x+b.w/2)*TILE_SIZE,y:(b.y+b.h)*TILE_SIZE+4}})).filter(ent=>visible(ent.pos));
+    const drawList = [...buildingDrawables,...campDrawables,...this.enemies.filter(e=>visible(e.pos)),
+      ...this.allies.filter(e=>visible(e.pos)),...this.npcs.filter(n=>visible(n.pos)).map(n=>({...n,isNpc:true})),
+      {isPlayer:true,pos:this.player.pos,facing:this.player.facing}];
+    // Y-sorting par l'ancre des pieds (anchorX=.5, anchorY=1). Le toit est
+    // attaché à la base du bâtiment : joueur au nord = derrière, au sud = devant.
+    drawList.sort((a,b)=>(a.pos.y-b.pos.y)||((a.isBuilding?0:1)-(b.isBuilding?0:1)));
     for(const ent of drawList){
       if(ent.isPlayer) this.drawPlayer(ctx);
+      else if(ent.isBuilding) drawBuildingRoof(ctx,ent.building);
       else if(ent.isCampProp) this.drawCampProp(ctx, ent);
       else if(ent.isNpc) this.drawNpc(ctx, ent);
       else if(ent.kind==='squelette' || ent.kind==='loup') this.drawAlly(ctx, ent);
       else this.drawEnemy(ctx, ent);
     }
 
-    for(const p of this.projectiles) this.drawProjectile(ctx, p);
+    for(const p of this.projectiles)if(visible(p.pos))this.drawProjectile(ctx,p);
 
-    for(const f of this.fx) this.drawFx(ctx, f);
+    for(const f of this.fx)if(visible(f))this.drawFx(ctx,f);
+
+    this.renderStats={tiles:(x1-x0)*(y1-y0),entities:drawList.length,
+      culled:Math.max(0,totalCandidates-drawList.length)};
 
     ctx.restore();
   }
@@ -845,7 +866,7 @@ export class Game{
     ctx.beginPath(); ctx.ellipse(npc.pos.x,npc.pos.y+2,18,6,0,0,Math.PI*2); ctx.fill();
     ctx.restore();
     ctx.save();
-    ctx.translate(npc.pos.x,npc.pos.y);
+    ctx.translate(px(npc.pos.x),px(npc.pos.y));
     if(!img._hd2d && npc.facing.x<-.1) ctx.scale(-1,1);
     ctx.imageSmoothingEnabled=false;
     ctx.drawImage(img,-w/2,-h+14,w,h);
@@ -887,7 +908,7 @@ export class Game{
     const renderW = img._hd2d ? 96 : (img._modular?img.width:w);
     const renderH = img._hd2d ? 96 : (img._modular?img.height:h);
     ctx.save();
-    ctx.translate(p.pos.x, p.pos.y);
+    ctx.translate(px(p.pos.x),px(p.pos.y));
     if(!img._hd2d && p.facing.x < -0.1) ctx.scale(-1,1);
     let alpha = 1;
     for(const b of p.buffs) if(b.effect && b.effect.invisible) alpha = 0.35;
@@ -917,7 +938,7 @@ export class Game{
       bob = Math.sin(this.time*6 + e.uid) * (e.moving?4:1.8);
     }
     ctx.save();
-    ctx.translate(e.pos.x, e.pos.y+bob);
+    ctx.translate(px(e.pos.x),px(e.pos.y+bob));
     if(!img._hd2d && e.facing.x < -0.1) ctx.scale(-1,1);
     let alpha = e.dead ? Math.max(0, e.deathTimer/0.6) : 1;
     ctx.globalAlpha = alpha;
@@ -946,7 +967,7 @@ export class Game{
 
   drawAlly(ctx, a){
     ctx.save();
-    ctx.translate(a.pos.x, a.pos.y);
+    ctx.translate(px(a.pos.x),px(a.pos.y));
     ctx.fillStyle = a.kind==='loup' ? '#8fa0a8' : '#c9c2b0';
     ctx.beginPath(); ctx.ellipse(0,-10,14,18,0,0,Math.PI*2); ctx.fill();
     ctx.restore();
@@ -956,7 +977,7 @@ export class Game{
     const ang = Math.atan2(p.vel.y, p.vel.x);
     const r = p.radius;
     ctx.save();
-    ctx.translate(p.pos.x, p.pos.y);
+    ctx.translate(px(p.pos.x),px(p.pos.y));
     ctx.rotate(ang);
     const type = p.fromPlayer ? (p.dmgType||'physique') : 'enemi';
     switch(type){
