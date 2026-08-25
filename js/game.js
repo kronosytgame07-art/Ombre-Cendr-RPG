@@ -134,29 +134,113 @@ function drawBuildingRoof(ctx, b){
   ctx.restore();
 }
 
-function drawFortifiedPerimeter(ctx,map,view){
-  const wall=getImageSync('assets/sprites/world/village-v2/wall_straight.png');
-  const tower=getImageSync('assets/sprites/world/village-v2/tower.png');
-  const gate=getImageSync('assets/sprites/world/village-v2/gatehouse.png');
-  if(!wall||!tower||!gate)return;
-  const worldW=map.w*TILE_SIZE,worldH=map.h*TILE_SIZE,segment=150,wallWidth=168;
-  ctx.save();ctx.imageSmoothingEnabled=false;
-  const inView=(x,y,w,h)=>!view||x+w>=view.left&&x<=view.right&&y+h>=view.top&&y<=view.bottom;
-  for(let x=75;x<worldW-75;x+=segment){
-    if(Math.abs(x-worldW/2)>110){
-      const left=px(x-wallWidth/2);
-      if(inView(left,-28,wallWidth,132))ctx.drawImage(wall,left,-28,wallWidth,132);
-      if(inView(left,worldH-102,wallWidth,132))ctx.drawImage(wall,left,worldH-102,wallWidth,132);
+const rampartCache=new Map();
+function rampartTile(side,variant){
+  const key=`${side}:${variant}`;
+  if(rampartCache.has(key))return rampartCache.get(key);
+  const canvas=document.createElement('canvas');canvas.width=TILE_SIZE;canvas.height=TILE_SIZE;
+  const c=canvas.getContext('2d');c.imageSmoothingEnabled=false;
+  c.fillStyle='#171719';c.fillRect(0,0,TILE_SIZE,TILE_SIZE);
+  c.fillStyle='#3c3b3d';c.fillRect(2,2,TILE_SIZE-4,TILE_SIZE-4);
+  const rows=[2,12,22,32];
+  for(let r=0;r<rows.length;r++){
+    const y=rows[r],offset=((r+variant)&1)?-7:0;
+    for(let x=offset;x<TILE_SIZE;x+=15){
+      c.fillStyle=((x/15+r+variant)&1)?'#504d4c':'#464546';
+      c.fillRect(x+1,y+1,13,8);
+      c.fillStyle='#2b292b';c.fillRect(x+1,y+8,13,2);
+      c.fillStyle='rgba(255,255,255,.10)';c.fillRect(x+2,y+2,10,1);
     }
   }
-  for(let y=100;y<worldH-100;y+=segment){
-    if(inView(0,y-80,148,160)){ctx.save();ctx.translate(68,y);ctx.rotate(Math.PI/2);ctx.drawImage(wall,-66,-80,132,160);ctx.restore();}
-    if(inView(worldW-148,y-80,148,160)){ctx.save();ctx.translate(worldW-68,y);ctx.rotate(-Math.PI/2);ctx.drawImage(wall,-66,-80,132,160);ctx.restore();}
+  c.fillStyle='#111';
+  if(side==='top')c.fillRect(0,TILE_SIZE-4,TILE_SIZE,4);
+  else if(side==='bottom')c.fillRect(0,0,TILE_SIZE,4);
+  else if(side==='left')c.fillRect(TILE_SIZE-4,0,4,TILE_SIZE);
+  else c.fillRect(0,0,4,TILE_SIZE);
+  // Créneaux intégrés dans la tuile : aucun raccord d'image ni rotation.
+  c.fillStyle='#5b5754';
+  if(side==='top'||side==='bottom')for(let x=2;x<TILE_SIZE;x+=14)c.fillRect(x,side==='top'?1:31,9,8);
+  else for(let y=2;y<TILE_SIZE;y+=14)c.fillRect(side==='left'?1:31,y,8,9);
+  rampartCache.set(key,canvas);return canvas;
+}
+
+function drawGate(ctx,map,side,view){
+  const exit=side==='top'?map.exits.north:map.exits.south;
+  if(!exit)return;
+  const center=exit.x*TILE_SIZE+TILE_SIZE/2;
+  const y=side==='top'?0:(map.h-2)*TILE_SIZE;
+  const bounds={left:center-TILE_SIZE*3,top:y-TILE_SIZE,right:center+TILE_SIZE*3,bottom:y+TILE_SIZE*3};
+  if(!rectIntersects(bounds,view))return;
+  ctx.save();ctx.imageSmoothingEnabled=false;
+  // Chaussée continue sous l'entrée ouverte.
+  ctx.fillStyle='#272527';ctx.fillRect(center-TILE_SIZE*2,y,TILE_SIZE*4,TILE_SIZE*2);
+  for(let row=0;row<2;row++)for(let col=-2;col<2;col++){
+    const x=center+col*TILE_SIZE;
+    ctx.strokeStyle='#4d4947';ctx.strokeRect(x+1,y+row*TILE_SIZE+1,TILE_SIZE-2,TILE_SIZE-2);
   }
-  const tw=128,th=142;
-  for(const [x,y] of [[0,0],[worldW-tw,0],[0,worldH-th],[worldW-tw,worldH-th]])if(inView(x,y,tw,th))ctx.drawImage(tower,x,y,tw,th);
-  if(inView(worldW/2-92,-42,184,174))ctx.drawImage(gate,worldW/2-92,-42,184,174);
-  if(inView(worldW/2-92,worldH-132,184,174))ctx.drawImage(gate,worldW/2-92,worldH-132,184,174);
+  // Deux tours carrées en blocs, directement raccordées aux remparts.
+  for(const dir of [-1,1]){
+    const towerX=center+dir*TILE_SIZE*2-(dir<0?TILE_SIZE:0);
+    ctx.fillStyle='#242326';ctx.fillRect(towerX,y-TILE_SIZE,TILE_SIZE,TILE_SIZE*3);
+    ctx.drawImage(rampartTile(side,Math.abs(dir)),towerX,y,TILE_SIZE,TILE_SIZE);
+    ctx.drawImage(rampartTile(side,Math.abs(dir)+1),towerX,y+TILE_SIZE,TILE_SIZE,TILE_SIZE);
+    ctx.fillStyle='#77706a';
+    for(let i=0;i<3;i++)ctx.fillRect(towerX+i*14,y-TILE_SIZE,9,10);
+  }
+  // Traverse et herse relevée : l'ouverture reste clairement praticable.
+  ctx.fillStyle='#171516';ctx.fillRect(center-TILE_SIZE*2,y-9,TILE_SIZE*4,9);
+  ctx.fillStyle='#70543a';ctx.fillRect(center-TILE_SIZE*1.5,y-5,TILE_SIZE*3,5);
+  ctx.restore();
+}
+
+function drawFortifiedPerimeter(ctx,map,view){
+  const topGate=map.exits.north?.x??Math.floor(map.w/2);
+  const bottomGate=map.exits.south?.x??Math.floor(map.w/2);
+  ctx.save();ctx.imageSmoothingEnabled=false;
+  for(let x=0;x<map.w;x++)for(let depth=0;depth<2;depth++){
+    const topY=depth*TILE_SIZE,bottomY=(map.h-1-depth)*TILE_SIZE;
+    if(Math.abs(x-topGate)>2&&rectIntersects({left:x*TILE_SIZE,top:topY,right:(x+1)*TILE_SIZE,bottom:topY+TILE_SIZE},view))
+      ctx.drawImage(rampartTile('top',(x+depth)%3),x*TILE_SIZE,topY);
+    if(Math.abs(x-bottomGate)>2&&rectIntersects({left:x*TILE_SIZE,top:bottomY,right:(x+1)*TILE_SIZE,bottom:bottomY+TILE_SIZE},view))
+      ctx.drawImage(rampartTile('bottom',(x+depth)%3),x*TILE_SIZE,bottomY);
+  }
+  for(let y=2;y<map.h-2;y++)for(let depth=0;depth<2;depth++){
+    const leftX=depth*TILE_SIZE,rightX=(map.w-1-depth)*TILE_SIZE;
+    if(rectIntersects({left:leftX,top:y*TILE_SIZE,right:leftX+TILE_SIZE,bottom:(y+1)*TILE_SIZE},view))
+      ctx.drawImage(rampartTile('left',(y+depth)%3),leftX,y*TILE_SIZE);
+    if(rectIntersects({left:rightX,top:y*TILE_SIZE,right:rightX+TILE_SIZE,bottom:(y+1)*TILE_SIZE},view))
+      ctx.drawImage(rampartTile('right',(y+depth)%3),rightX,y*TILE_SIZE);
+  }
+  drawGate(ctx,map,'top',view);drawGate(ctx,map,'bottom',view);
+  ctx.restore();
+}
+
+function wallGuardDrawables(map,time,view){
+  const guards=[];
+  const minX=TILE_SIZE*3,maxX=(map.w-3)*TILE_SIZE;
+  for(let i=0;i<6;i++){
+    const span=Math.max(1,maxX-minX),phase=(time*24+i*span/6)%span;
+    const backwards=i%2===1;
+    const x=px(backwards?maxX-phase:minX+phase);
+    const y=(i<3?1.45:map.h-1.45)*TILE_SIZE;
+    const pos={x,y:px(y)};
+    if(visiblePoint(pos,view,80))guards.push({isWallGuard:true,pos,facing:{x:backwards?-1:1,y:0},step:Math.floor(time*8+i)%2});
+  }
+  return guards;
+}
+function visiblePoint(pos,view,pad=0){return pos.x>=view.left-pad&&pos.x<=view.right+pad&&pos.y>=view.top-pad&&pos.y<=view.bottom+pad;}
+
+function drawWallGuard(ctx,guard){
+  const x=px(guard.pos.x),y=px(guard.pos.y),step=guard.step?1:-1;
+  ctx.save();ctx.imageSmoothingEnabled=false;ctx.translate(x,y);
+  if(guard.facing.x<0)ctx.scale(-1,1);
+  ctx.globalAlpha=.35;ctx.fillStyle='#000';ctx.fillRect(-8,-2,16,4);ctx.globalAlpha=1;
+  ctx.fillStyle='#171719';ctx.fillRect(-5,-18+step,4,15);ctx.fillRect(2,-18-step,4,15);
+  ctx.fillStyle='#555963';ctx.fillRect(-8,-37,16,21);
+  ctx.fillStyle='#9a4a31';ctx.fillRect(-8,-31,16,4);
+  ctx.fillStyle='#777b83';ctx.fillRect(-6,-48,12,12);
+  ctx.fillStyle='#202126';ctx.fillRect(-7,-45,14,4);
+  ctx.fillStyle='#8d9299';ctx.fillRect(8,-39,2,30);ctx.fillStyle='#393b40';ctx.fillRect(6,-10,7,3);
   ctx.restore();
 }
 
@@ -756,8 +840,9 @@ export class Game{
       }
     }
 
+    const wallGuards=this.zone.kind==='town'?wallGuardDrawables(this.map,this.time,view):[];
     const totalCandidates=(this.map.campProps||[]).length+(this.map.buildings||[]).length+
-      this.enemies.length+this.allies.length+this.npcs.length+1;
+      this.enemies.length+this.allies.length+this.npcs.length+wallGuards.length+1;
     let drawOrder=0;
     const campDrawables = (this.map.campProps||[]).map(p=>({
       ...p,isCampProp:true,pos:{x:px((p.x+0.5)*TILE_SIZE),y:px((p.y+0.82)*TILE_SIZE)},
@@ -769,7 +854,8 @@ export class Game{
     })).filter(ent=>rectIntersects(ent.bounds,view));
     const dynamic=(list,extra={})=>list.filter(e=>visible(e.pos)).map(e=>({...e,...extra,renderOrder:drawOrder++}));
     for(const decor of groundDecorDrawables) decor.renderOrder=drawOrder++;
-    const drawList = [...buildingDrawables,...groundDecorDrawables,...campDrawables,...dynamic(this.enemies),
+    for(const guard of wallGuards)guard.renderOrder=drawOrder++;
+    const drawList = [...buildingDrawables,...groundDecorDrawables,...campDrawables,...wallGuards,...dynamic(this.enemies),
       ...dynamic(this.allies),...dynamic(this.npcs,{isNpc:true}),
       {isPlayer:true,pos:this.player.pos,facing:this.player.facing,renderOrder:drawOrder++}];
     // Y-sorting par l'ancre des pieds (anchorX=.5, anchorY=1). Le toit est
@@ -784,6 +870,7 @@ export class Game{
       if(ent.isPlayer) this.drawPlayer(ctx);
       else if(ent.isBuilding) drawBuildingRoof(ctx,ent.building);
       else if(ent.isGroundDecor) drawFloorDecor(ctx,ent.tileX,ent.tileY,ent.style,this.zone.floorTile,this.time);
+      else if(ent.isWallGuard) drawWallGuard(ctx,ent);
       else if(ent.isCampProp) this.drawCampProp(ctx, ent);
       else if(ent.isNpc) this.drawNpc(ctx, ent);
       else if(ent.kind==='squelette' || ent.kind==='loup') this.drawAlly(ctx, ent);

@@ -11,9 +11,13 @@ import { renderInventory, renderSkillTree, renderCodex, renderWorldMap, renderSh
 import { setDifficulty } from './engine/difficulty.js';
 import { setVolumes, unlockAudio, startMusic, playSfx } from './engine/audio.js';
 
-const VILLAGE_V2=['wall_straight','wall_corner','tower','gatehouse','inn','house','forge','shop','tent'].map(n=>`assets/sprites/world/village-v2/${n}.png`);
-const ENEMY_V2=['voile_ombre','squelette_guerrier','gardien_pierre','troll_roc','geant_givre','cultiste_nihilash','golem_cendre','minotaure_lave'].map(n=>`assets/sprites/enemies/v2/${n}_8dir_actions.png`);
-const HERO_IMAGE_PATHS = [...CLASSES.flatMap(c=>[c.sprite, c.sheet].filter(Boolean)), ...ENEMY_V2, ...VILLAGE_V2, 'assets/sprites/items/equipment_atlas.png', 'assets/tiles/terrain_atlas.png', 'assets/sprites/world/world_props_atlas.png', 'assets/sprites/npcs/camp_npcs_8dir.png', 'assets/sprites/enemies/cendre_corrompu_8dir.png', 'assets/sprites/enemies/chien_suie_8dir.png', 'assets/sprites/enemies/araignee_calcinee_8dir.png', 'assets/sprites/enemies/chauvesouris_braise_8dir.png', 'assets/sprites/enemies/larve_ombre_8dir.png', 'assets/sprites/enemies/serpent_marais_8dir.png', 'assets/sprites/enemies/serpent_desert_8dir.png', 'assets/sprites/enemies/maraudeur_corrompu_8dir.png', 'assets/sprites/world/camp_environment_atlas.png'];
+const VILLAGE_V2=['inn','house','forge','shop','tent'].map(n=>`assets/sprites/world/village-v2/${n}.png`);
+// Les grandes planches 8x8 défectueuses ne sont plus préchargées : le rendu
+// utilise les acteurs procéduraux, ce qui évite aussi plusieurs dizaines de Mo
+// de textures RGBA décodées en mémoire.
+const HERO_IMAGE_PATHS = [...CLASSES.map(c=>c.sprite).filter(Boolean), ...VILLAGE_V2,
+  'assets/tiles/terrain_atlas.png','assets/sprites/world/world_props_atlas.png',
+  'assets/sprites/world/camp_environment_atlas.png'];
 
 let game = null;
 let currentSlot = null;

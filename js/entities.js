@@ -9,6 +9,11 @@ import { getImageSync } from './engine/assets.js';
 
 let uidCounter = 1;
 function nextUid(){ return uidCounter++; }
+// Les planches IA actuelles ne respectent pas leur grille : des corps et des
+// armes traversent les cellules, donc aucune découpe Canvas ne peut les rendre
+// correctement. Le moteur procédural reste pixel-perfect et animé en attendant
+// des exports source conformes (une silhouette complète par cellule).
+const USE_GENERATED_SHEETS=false;
 
 export function createPlayer(classId, name){
   const cls = getClass(classId);
@@ -111,7 +116,7 @@ function heroAnimationRow(player, pose){
 }
 export function playerSpriteCanvas(player, pose){
   const cls=getClass(player.classId);
-  const sheet=cls.sheet && getImageSync(cls.sheet);
+  const sheet=USE_GENERATED_SHEETS&&cls.sheet&&getImageSync(cls.sheet);
   if(sheet){
     const col=facingColumn(player.facing), row=heroAnimationRow(player,pose);
     const equipmentKey=Object.values(player.equipment).map(it=>it?.uid||'-').join('|');
@@ -204,7 +209,7 @@ const enemySpriteCache = new Map();
 // pour une vraie animation ; les créatures restent en cache (silhouette figée,
 // un léger mouvement est appliqué au moment du rendu par le jeu).
 export function enemySpriteCanvas(def, pose, entity=null){
-  const sheet=def.sheet && getImageSync(def.sheet);
+  const sheet=USE_GENERATED_SHEETS&&def.sheet&&getImageSync(def.sheet);
   if(sheet && entity){
     const col=facingColumn(entity.facing);
     let row=0;
@@ -231,7 +236,7 @@ export function enemySpriteCanvas(def, pose, entity=null){
 }
 const npcSpriteCache = new Map();
 export function npcSpriteCanvas(npc){
-  const atlas=getImageSync('assets/sprites/npcs/camp_npcs_8dir.png');
+  const atlas=USE_GENERATED_SHEETS&&getImageSync('assets/sprites/npcs/camp_npcs_8dir.png');
   if(atlas && npc.sheetIdle!=null){
     const col=facingColumn(npc.facing);
     const step=Math.floor(performance.now()/180)%2;
@@ -245,14 +250,13 @@ export function npcSpriteCanvas(npc){
     drawSafeFrame(ctx,atlas,col,row);
     return cacheFrame(npcSpriteCache,key,canvas,64);
   }
-  const key='npc:fallback:'+npc.id;
-  if(npcSpriteCache.has(key)) return npcSpriteCache.get(key);
   const s=npc.sprite;
+  const walk=npc.moving?Math.sin(performance.now()/115):0;
   const canvas=drawHumanoid({
     w:68,h:86,skin:'#c9a880',cloth:s.cloth,accent:s.accent,trim:s.trim||'#8a8a80',
     hair:s.hair||'#2b1c14',weapon:s.weapon||'none',hood:!!s.hood,cloak:!!s.cloak,armor:s.armor||'leger',
+    pose:{walk},
   });
-  npcSpriteCache.set(key,canvas);
   return canvas;
 }
 
