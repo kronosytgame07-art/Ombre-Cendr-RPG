@@ -12,6 +12,7 @@ import { Rng } from './engine/rng.js';
 import { getDifficultyMult } from './engine/difficulty.js';
 import { npcsForZone } from './data/npcs.js';
 import { registerKillForQuests } from './systems/quests.js';
+import { getImageSync } from './engine/assets.js';
 
 const PLAYER_RADIUS = 16;
 const PORTAL_TRIGGER_DIST = 70;
@@ -582,10 +583,17 @@ export class Game{
 
     if(this.map.portal){
       const px=(this.map.portal.x+0.5)*TILE_SIZE, py=(this.map.portal.y+0.5)*TILE_SIZE;
-      const pulse = 10+Math.sin(this.time*3)*4;
-      ctx.strokeStyle = this.bossSpawnedThisVisit ? '#555' : (this.zone.isFinal?'#8a1fff':'#ff8c2b');
-      ctx.lineWidth=3;
-      ctx.beginPath(); ctx.arc(px,py,20+pulse,0,Math.PI*2); ctx.stroke();
+      const props=getImageSync('assets/sprites/world/world_props_atlas.png');
+      if(props){
+        const frame=this.bossSpawnedThisVisit ? 0 : Math.floor(this.time*6)%4;
+        ctx.imageSmoothingEnabled=false;
+        ctx.drawImage(props,frame*128,128,128,128,px-52,py-88,104,104);
+      }else{
+        const pulse=10+Math.sin(this.time*3)*4;
+        ctx.strokeStyle=this.bossSpawnedThisVisit?'#555':(this.zone.isFinal?'#8a1fff':'#ff8c2b');
+        ctx.lineWidth=3;
+        ctx.beginPath(); ctx.arc(px,py,20+pulse,0,Math.PI*2); ctx.stroke();
+      }
     }
 
     for(const t of this.traps){
@@ -594,8 +602,16 @@ export class Game{
       ctx.beginPath(); ctx.arc(t.pos.x,t.pos.y,8,0,Math.PI*2); ctx.fill();
     }
     for(const p of this.pickups){
-      ctx.fillStyle = p.kind==='gold' ? '#d8b45a' : p.kind==='chest' ? '#8a6d3a' : p.kind==='potion' ? '#7fd97f' : '#e8dcc8';
-      ctx.beginPath(); ctx.arc(p.pos.x,p.pos.y,p.kind==='chest'?10:6,0,Math.PI*2); ctx.fill();
+      const props=getImageSync('assets/sprites/world/world_props_atlas.png');
+      if(p.kind==='chest' && props){
+        const elapsed=Math.max(0,(performance.now()-p.bornAt)/1000);
+        const frame=Math.min(3,Math.floor(elapsed/0.18));
+        ctx.imageSmoothingEnabled=false;
+        ctx.drawImage(props,frame*128,0,128,128,p.pos.x-34,p.pos.y-48,68,68);
+      }else{
+        ctx.fillStyle=p.kind==='gold'?'#d8b45a':p.kind==='potion'?'#7fd97f':'#e8dcc8';
+        ctx.beginPath(); ctx.arc(p.pos.x,p.pos.y,6,0,Math.PI*2); ctx.fill();
+      }
     }
 
     const drawList = [...this.enemies, ...this.allies, ...this.npcs.map(n=>({...n, isNpc:true})), {isPlayer:true, pos:this.player.pos, facing:this.player.facing}];
