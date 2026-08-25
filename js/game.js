@@ -247,7 +247,50 @@ export class Game{
       }
       if(best){ tx=best[0]; ty=best[1]; }
     }
-    return { ...n, pos:{x:(tx+0.5)*TILE_SIZE, y:(ty+0.5)*TILE_SIZE}, facing:{x:0,y:1}, stock:null };
+    const pos={x:(tx+0.5)*TILE_SIZE,y:(ty+0.5)*TILE_SIZE};
+    return {...n,pos,facing:{x:0,y:1},stock:null,homePos:{...pos},wanderTarget:null,wanderTimer:1+Math.random()*2,moving:false};
+  }
+
+  updateNpcs(dt){
+    for(const n of this.npcs){
+      const toPlayerX=this.player.pos.x-n.pos.x, toPlayerY=this.player.pos.y-n.pos.y;
+      const playerDist=Math.hypot(toPlayerX,toPlayerY);
+      if(playerDist<76){
+        n.moving=false; n.wanderTarget=null; n.wanderTimer=Math.max(n.wanderTimer,1);
+        if(playerDist>1){ n.facing={x:toPlayerX/playerDist,y:toPlayerY/playerDist}; }
+        continue;
+      }
+      if(n.wanderTarget){
+        const dx=n.wanderTarget.x-n.pos.x, dy=n.wanderTarget.y-n.pos.y;
+        const dist=Math.hypot(dx,dy);
+        if(dist<3){
+          n.pos.x=n.wanderTarget.x; n.pos.y=n.wanderTarget.y;
+          n.wanderTarget=null; n.wanderTimer=1.2+Math.random()*3.2; n.moving=false;
+        }else{
+          const nx=dx/dist, ny=dy/dist, step=Math.min(dist,38*dt);
+          const nextX=n.pos.x+nx*step, nextY=n.pos.y+ny*step;
+          if(isWalkable(this.map,Math.floor(nextX/TILE_SIZE),Math.floor(nextY/TILE_SIZE))){
+            n.pos.x=nextX; n.pos.y=nextY; n.facing={x:nx,y:ny}; n.moving=true;
+          }else{
+            n.wanderTarget=null; n.wanderTimer=0.6+Math.random()*1.2; n.moving=false;
+          }
+        }
+      }else{
+        n.moving=false; n.wanderTimer-=dt;
+        if(n.wanderTimer<=0){
+          for(let attempt=0;attempt<8;attempt++){
+            const angle=Math.random()*Math.PI*2;
+            const radius=(1.2+Math.random()*2.8)*TILE_SIZE;
+            const tx=n.homePos.x+Math.cos(angle)*radius;
+            const ty=n.homePos.y+Math.sin(angle)*radius;
+            if(isWalkable(this.map,Math.floor(tx/TILE_SIZE),Math.floor(ty/TILE_SIZE))){
+              n.wanderTarget={x:tx,y:ty}; break;
+            }
+          }
+          if(!n.wanderTarget) n.wanderTimer=1+Math.random()*2;
+        }
+      }
+    }
   }
 
   updateNpcProximity(){
@@ -298,6 +341,7 @@ export class Game{
     }
 
     this.handleMovement(dt);
+    this.updateNpcs(dt);
     this.updateNpcProximity();
     this.handleInputActions();
 
@@ -631,11 +675,13 @@ export class Game{
   }
 
   drawNpc(ctx, npc){
-    const img = npcSpriteCanvas(npc);
-    const w=68, h=86;
+    const img=npcSpriteCanvas(npc);
+    const w=img._hd2d?96:68, h=img._hd2d?96:86;
     ctx.save();
-    ctx.translate(npc.pos.x, npc.pos.y);
-    ctx.drawImage(img, -w/2, -h+12, w, h);
+    ctx.translate(npc.pos.x,npc.pos.y);
+    if(!img._hd2d && npc.facing.x<-.1) ctx.scale(-1,1);
+    ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(img,-w/2,-h+14,w,h);
     ctx.restore();
 
     // Marqueur d'interaction façon RPG : $ boutique, ! quête dispo, ? à rendre.
