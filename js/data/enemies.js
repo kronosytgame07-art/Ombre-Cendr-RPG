@@ -41,6 +41,7 @@ export const ENEMY_TYPES = {
   larve_ombre: {
     id:'larve_ombre', name:"Larve d'Ombre", family:'aberration',
     sprite:{kind:'creature', shape:'larve', main:'#241830', eye:'#b34dff'},
+    sheet:'assets/sprites/enemies/larve_ombre_8dir.png',
     behavior:'melee', speed:0.6, aggroRange:160, atkRange:24, atkCooldown:1.4,
     base:{hp:22, dmg:[3,8], armor:0, xp:7},
     resist:{ombre:30}, zones:['marais','faille'],
