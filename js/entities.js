@@ -90,13 +90,31 @@ const enemySpriteCache = new Map();
 // Les humanoïdes sont redessinés à chaque frame avec leur pose (marche/coup)
 // pour une vraie animation ; les créatures restent en cache (silhouette figée,
 // un léger mouvement est appliqué au moment du rendu par le jeu).
-export function enemySpriteCanvas(def, pose){
-  if(def.sprite.kind === 'humanoid'){
-    return drawHumanoid({w:68, h:86, ...spriteHumanoidOpts(def.sprite), pose});
+export function enemySpriteCanvas(def, pose, entity=null){
+  const sheet=def.sheet && getImageSync(def.sheet);
+  if(sheet && entity){
+    const col=facingColumn(entity.facing);
+    let row=0;
+    if(entity.dead) row=5;
+    else if(entity.hitFlash>0) row=4;
+    else if(entity.action) row=3;
+    else if(entity.moving) row=(Math.floor(performance.now()/170)%2)?1:2;
+    const key='enemy:'+def.id+':'+col+':'+row;
+    if(enemySpriteCache.has(key)) return enemySpriteCache.get(key);
+    const canvas=document.createElement('canvas');
+    canvas.width=96; canvas.height=96; canvas._hd2d=true;
+    const ctx=canvas.getContext('2d');
+    ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(sheet,col*96,row*96,96,96,0,0,96,96);
+    enemySpriteCache.set(key,canvas);
+    return canvas;
+  }
+  if(def.sprite.kind==='humanoid'){
+    return drawHumanoid({w:68,h:86,...spriteHumanoidOpts(def.sprite),pose});
   }
   if(enemySpriteCache.has(def.id)) return enemySpriteCache.get(def.id);
-  const canvas = drawCreature({w:76, h:64, shape:def.sprite.shape, main:def.sprite.main, eye:def.sprite.eye});
-  enemySpriteCache.set(def.id, canvas);
+  const canvas=drawCreature({w:76,h:64,shape:def.sprite.shape,main:def.sprite.main,eye:def.sprite.eye});
+  enemySpriteCache.set(def.id,canvas);
   return canvas;
 }
 const npcSpriteCache = new Map();
