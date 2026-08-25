@@ -5,6 +5,7 @@ import { ENEMY_TYPES, BOSSES, scaledEnemyStats } from './data/enemies.js';
 import { drawHumanoid, drawCreature, drawBoss, shade } from './engine/sprites.js';
 import { generateItem } from './data/items.js';
 import { ZONES } from './data/zones.js';
+import { getImageSync } from './engine/assets.js';
 
 let uidCounter = 1;
 function nextUid(){ return uidCounter++; }
@@ -44,19 +45,44 @@ export function createPlayer(classId, name){
   return player;
 }
 
-// Rendu procédural en temps réel : reflète l'équipement (arme/bouclier/casque
-// modulables — vides si déséquipés) et la pose du moment (marche, coup,
-// incantation). Volontairement non mis en cache : la pose change en continu.
+// Sprites HD-2D : grille 8 directions × 8 états, cellules de 96 px.
+const heroFrameCache = new Map();
+function facingColumn(facing){
+  const x=facing?.x||0, y=facing?.y||1;
+  return (Math.round(Math.atan2(-x,y)/(Math.PI/4))+8)%8;
+}
+function heroAnimationRow(player, pose){
+  if(player.hp<=0) return 7;
+  if(player.hitFlash>0) return 6;
+  if(pose?.action){
+    if(pose.action.kind==='dodge') return 5;
+    return pose.action.phase<0.5 ? 3 : 4;
+  }
+  if(player.moving) return (Math.floor(performance.now()/130)%2) ? 1 : 2;
+  return 0;
+}
 export function playerSpriteCanvas(player, pose){
-  const cls = getClass(player.classId);
-  const weaponItem = player.equipment.arme;
-  const weaponType = weaponItem ? weaponItem.weaponClass : 'none';
+  const cls=getClass(player.classId);
+  const sheet=cls.sheet && getImageSync(cls.sheet);
+  if(sheet){
+    const col=facingColumn(player.facing), row=heroAnimationRow(player,pose);
+    const key=player.classId+':'+col+':'+row;
+    if(heroFrameCache.has(key)) return heroFrameCache.get(key);
+    const canvas=document.createElement('canvas');
+    canvas.width=96; canvas.height=96; canvas._hd2d=true;
+    const ctx=canvas.getContext('2d');
+    ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(sheet,col*96,row*96,96,96,0,0,96,96);
+    heroFrameCache.set(key,canvas);
+    return canvas;
+  }
+  const weaponItem=player.equipment.arme;
+  const weaponType=weaponItem ? weaponItem.weaponClass : 'none';
   return drawHumanoid({
-    w:68, h:86, skin:cls.palette.skin, cloth:cls.palette.cloth, accent:cls.palette.accent,
-    trim:cls.palette.trim, hair:cls.palette.hair, weapon:weaponType,
-    hood: cls.hood && !player.equipment.casque, cloak:cls.cloak, armor:cls.armorStyle,
-    shield: !!player.equipment.bouclier, helmet: !!player.equipment.casque,
-    pose,
+    w:68,h:86,skin:cls.palette.skin,cloth:cls.palette.cloth,accent:cls.palette.accent,
+    trim:cls.palette.trim,hair:cls.palette.hair,weapon:weaponType,
+    hood:cls.hood&&!player.equipment.casque,cloak:cls.cloak,armor:cls.armorStyle,
+    shield:!!player.equipment.bouclier,helmet:!!player.equipment.casque,pose,
   });
 }
 
