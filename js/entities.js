@@ -14,6 +14,7 @@ function nextUid(){ return uidCounter++; }
 // correctement. Le moteur procédural reste pixel-perfect et animé en attendant
 // des exports source conformes (une silhouette complète par cellule).
 const USE_GENERATED_SHEETS=false;
+const USE_STATIC_DETAIL_SPRITES=true;
 
 export function createPlayer(classId, name){
   const cls = getClass(classId);
@@ -129,6 +130,16 @@ export function playerSpriteCanvas(player, pose){
     drawEquipmentLayer(ctx,player,col);
     return cacheFrame(heroFrameCache,key,canvas,192);
   }
+  const portrait=USE_STATIC_DETAIL_SPRITES&&cls.sprite&&getImageSync(cls.sprite);
+  if(portrait){
+    const key=`hero:detail:${player.classId}`;
+    if(heroFrameCache.has(key))return heroFrameCache.get(key);
+    const canvas=document.createElement('canvas');canvas.width=96;canvas.height=96;
+    canvas._hd2d=true;canvas._staticDetailed=true;
+    const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(portrait,0,0,portrait.width,portrait.height,0,0,96,96);
+    return cacheFrame(heroFrameCache,key,canvas,32);
+  }
   const weaponItem=player.equipment.arme;
   const weaponType=weaponItem ? weaponItem.weaponClass : 'none';
   const rarityColor={commun:'#9b8d79',magique:'#4d8fff',rare:'#d9c942',epique:'#a84ee0',legendaire:'#e87927'};
@@ -209,7 +220,16 @@ const enemySpriteCache = new Map();
 // pour une vraie animation ; les créatures restent en cache (silhouette figée,
 // un léger mouvement est appliqué au moment du rendu par le jeu).
 export function enemySpriteCanvas(def, pose, entity=null){
-  const sheet=USE_GENERATED_SHEETS&&def.sheet&&getImageSync(def.sheet);
+  const sheet=def.sheet&&getImageSync(def.sheet);
+  if(!USE_GENERATED_SHEETS&&USE_STATIC_DETAIL_SPRITES&&sheet){
+    const key=`enemy:detail:${def.id}`;
+    if(enemySpriteCache.has(key))return enemySpriteCache.get(key);
+    const canvas=document.createElement('canvas');canvas.width=96;canvas.height=96;
+    canvas._hd2d=true;canvas._staticDetailed=true;
+    const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
+    drawSafeFrame(ctx,sheet,0,0);
+    return cacheFrame(enemySpriteCache,key,canvas,64);
+  }
   if(sheet && entity){
     const col=facingColumn(entity.facing);
     let row=0;
@@ -236,15 +256,16 @@ export function enemySpriteCanvas(def, pose, entity=null){
 }
 const npcSpriteCache = new Map();
 export function npcSpriteCanvas(npc){
-  const atlas=USE_GENERATED_SHEETS&&getImageSync('assets/sprites/npcs/camp_npcs_8dir.png');
-  if(atlas && npc.sheetIdle!=null){
-    const col=facingColumn(npc.facing);
+  const atlas=getImageSync('assets/sprites/npcs/camp_npcs_8dir.png');
+  if(atlas&&npc.sheetIdle!=null&&(USE_GENERATED_SHEETS||USE_STATIC_DETAIL_SPRITES)){
+    const col=USE_GENERATED_SHEETS?facingColumn(npc.facing):0;
     const step=Math.floor(performance.now()/180)%2;
-    const row=npc.moving ? npc.sheetWalk[step] : npc.sheetIdle;
+    const row=USE_GENERATED_SHEETS&&npc.moving?npc.sheetWalk[step]:npc.sheetIdle;
     const key='npc:'+npc.id+':'+col+':'+row;
     if(npcSpriteCache.has(key)) return npcSpriteCache.get(key);
     const canvas=document.createElement('canvas');
     canvas.width=96; canvas.height=96; canvas._hd2d=true;
+    canvas._staticDetailed=!USE_GENERATED_SHEETS;
     const ctx=canvas.getContext('2d');
     ctx.imageSmoothingEnabled=false;
     drawSafeFrame(ctx,atlas,col,row);
