@@ -46,14 +46,15 @@ export function createPlayer(classId, name){
 }
 
 // Sprites HD-2D : grille 8 directions × 8 états, cellules de 96 px.
-// Gouttière de sécurité : les 3 pixels de bord de chaque cellule ne sont jamais
+// Gouttière de sécurité : les pixels de bord de chaque cellule ne sont jamais
 // échantillonnés. Cela élimine les fragments de la frame voisine lors des
 // attaques et de la marche, même avec un zoom Canvas non entier.
 function drawSafeFrame(ctx, image, col, row, cell=96){
-  // Les planches v2 ont déjà une gouttière transparente vérifiée par le
-  // calibrateur : on peut lire toute la cellule sans supprimer de pixels.
-  // Les anciennes feuilles conservent une marge défensive de 6 px.
-  const inset=image._assetPath?.includes('/v2/')||image._assetPath?.includes('_v2.png')?0:6;
+  // Même une planche correctement calibrée peut baver si un pixel opaque
+  // touche exactement la limite d'une cellule. On garde donc une gouttière
+  // minimale sur les planches v2 et une marge plus forte sur les anciennes.
+  const isV2=image._assetPath?.includes('/v2/')||image._assetPath?.includes('_v2.png');
+  const inset=isV2?2:6;
   ctx.clearRect(0,0,cell,cell);
   ctx.drawImage(image,col*cell+inset,row*cell+inset,cell-inset*2,cell-inset*2,
     inset,inset,cell-inset*2,cell-inset*2);
