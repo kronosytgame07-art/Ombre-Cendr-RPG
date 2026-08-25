@@ -7,8 +7,9 @@ import { createPlayer, playerSpriteCanvas } from './entities.js';
 import { recomputeStats, grantXp } from './systems/leveling.js';
 import { Game } from './game.js';
 import { listSaveSlots, saveGame, loadGame, deleteSave, findFirstEmptySlot, saveOptions, loadOptions } from './systems/save.js';
-import { renderInventory, renderSkillTree, renderCodex, renderWorldMap, renderShop, renderQuestGiver } from './panels.js';
+import { renderInventory, renderSkillTree, renderCodex, renderWorldMap, renderShop, renderQuestGiver, renderQuestLog } from './panels.js';
 import { setDifficulty } from './engine/difficulty.js';
+import { setVolumes, unlockAudio, startMusic, playSfx } from './engine/audio.js';
 
 const HERO_IMAGE_PATHS = CLASSES.filter(c=>c.sprite).map(c=>c.sprite);
 
@@ -17,6 +18,9 @@ let currentSlot = null;
 let selectedClassId = CLASSES[0].id;
 let options = loadOptions() || {music:40, sfx:60, difficulty:'cendre', uiScale:100, shake:true};
 setDifficulty(options.difficulty);
+setVolumes(options.sfx/100, options.music/100);
+document.addEventListener('pointerdown', unlockAudio, {once:true});
+document.addEventListener('keydown', unlockAudio, {once:true});
 
 function $(id){ return document.getElementById(id); }
 function showScreen(id){
@@ -84,6 +88,8 @@ $('btn-back-credits').addEventListener('click', ()=>showScreen('screen-menu'));
       uiScale:+$('opt-uiscale').value, shake:$('opt-shake').checked,
     };
     applyOptionsToDom(); saveOptions(options); setDifficulty(options.difficulty);
+    setVolumes(options.sfx/100, options.music/100);
+    if(game) game.shakeEnabled = options.shake;
   });
 });
 
@@ -184,9 +190,11 @@ function startGameWithPlayer(player){
   showScreen('screen-game');
   const canvas = $('game-canvas');
   game = new Game(canvas, player);
+  game.shakeEnabled = options.shake;
   game.enterZone(player.currentZone && getZone(player.currentZone) ? player.currentZone : 'refuge');
   buildSkillBarSlots();
   window.__game = game;
+  unlockAudio(); startMusic();
   requestAnimationFrame(loop);
 }
 
@@ -219,6 +227,7 @@ function processNotices(){
   }
   for(const ev of game.pendingLevelEvents.splice(0)){
     showBanner(`Niveau ${ev.level} !`);
+    playSfx('levelup');
   }
 }
 let bannerTimer=null;
@@ -235,6 +244,7 @@ function showHint(text){
   clearTimeout(hintTimer); hintTimer = setTimeout(()=>el.classList.remove('show'), 1800);
 }
 function showLootChip(item){
+  playSfx('pickup');
   const popup = $('loot-popup');
   const chip = document.createElement('div');
   chip.className = 'loot-chip rarity-'+({commun:'common',magique:'magic',rare:'rare',epique:'epic',legendaire:'legend'}[item.rarity]);
@@ -376,6 +386,7 @@ function refreshNpcBody(){
   else renderShop(currentNpc, game.player, refreshNpcBody);
 }
 function handleQuestRewardXp(xp){
+  playSfx('questcomplete');
   if(xp>0){
     const events = grantXp(game.player, xp);
     game.pendingLevelEvents.push(...events);
@@ -392,6 +403,7 @@ function openPanel(id){
     drawBigMap();
     renderWorldMap(game.player, (zoneId)=>{ game.enterZone(zoneId); closePanels(); });
   }
+  else if(id==='panel-questlog') renderQuestLog(game.player);
   else if(id==='panel-npc'){
     $('npc-name').textContent = currentNpc.name;
     $('npc-greeting').textContent = currentNpc.greeting;
@@ -410,7 +422,7 @@ document.addEventListener('click', (e)=>{
   if(closeBtn) closePanels();
   const openBtn = e.target.closest('[id^="btn-open-"]');
   if(openBtn){
-    const map = {'btn-open-inventory':'panel-inventory','btn-open-skills':'panel-skills','btn-open-codex':'panel-codex','btn-open-map':'panel-map','btn-open-pause':'panel-pause'};
+    const map = {'btn-open-inventory':'panel-inventory','btn-open-skills':'panel-skills','btn-open-quests':'panel-questlog','btn-open-codex':'panel-codex','btn-open-map':'panel-map','btn-open-pause':'panel-pause'};
     const target = map[openBtn.id];
     if(target) togglePanel(target);
   }
@@ -422,6 +434,7 @@ window.addEventListener('keydown', (e)=>{
   const k = e.key.toLowerCase();
   if(k==='i') togglePanel('panel-inventory');
   else if(k==='k') togglePanel('panel-skills');
+  else if(k==='l') togglePanel('panel-questlog');
   else if(k==='j') togglePanel('panel-codex');
   else if(k==='m') togglePanel('panel-map');
   else if(k==='escape'){ anyPanelOpen() ? closePanels() : togglePanel('panel-pause'); }

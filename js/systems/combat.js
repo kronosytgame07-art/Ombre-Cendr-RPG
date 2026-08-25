@@ -4,6 +4,7 @@ import { createProjectile } from '../entities.js';
 import { isWalkable } from '../engine/mapgen.js';
 import { TILE_SIZE } from '../engine/config.js';
 import { grantXp } from './leveling.js';
+import { playSfx } from '../engine/audio.js';
 
 // ---------------------------------------------------------------------
 // Description des effets de chaque compétence active (skillId -> impl).
@@ -123,6 +124,7 @@ export function castSkill(game, skillId, aimX, aimY){
   const ang = angleTo(player.pos, {x:aimX, y:aimY});
   player.facing = {x:Math.cos(ang), y:Math.sin(ang)};
   player.action = {kind: ACTION_ANIM_KIND[impl.type] || 'swing', t:0, duration: ACTION_ANIM_KIND[impl.type]==='cast' ? 0.34 : 0.24};
+  playSfx(player.action.kind==='cast' ? 'cast' : 'swing');
 
   switch(impl.type){
     case 'melee_cone': {
@@ -260,6 +262,7 @@ export function applyPlayerHitOnEnemy(game, enemy, dmgMult, dmgType, opts={}){
   enemy.hp -= mitigated;
   enemy.hitFlash = 0.15;
   spawnFloatingDamage(game, enemy.pos, Math.round(mitigated), crit, dmgType);
+  playSfx(crit ? 'crit' : 'hit');
 
   if(player.stats.lifeSteal) healPlayer(player, mitigated*player.stats.lifeSteal/100);
   if(player.stats.lifeOnHit) healPlayer(player, player.stats.lifeOnHit);
@@ -291,6 +294,7 @@ function healPlayer(player, amount){
 export function killEnemy(game, enemy){
   enemy.dead = true;
   enemy.deathTimer = 0.6;
+  playSfx(enemy.isBoss ? 'bossdown' : 'death');
   const events = grantXp(game.player, enemy.xpReward);
   game.pendingLevelEvents.push(...events);
   game.onEnemyKilled(enemy);
@@ -448,6 +452,8 @@ export function applyEnemyHitOnPlayer(game, enemy){
   const mitigated = Math.max(1, mitigate(raw, 'physique', player.stats.armor, player.stats.resist));
   player.hp -= mitigated;
   game.floatingTexts.push({x:player.pos.x, y:player.pos.y-10, text:String(Math.round(mitigated)), crit:false, dmgType:'subi', life:1.0, vy:-40});
+  playSfx('hurt');
+  game.triggerShake(Math.min(9, 2.5+mitigated*0.15));
 
   for(const b of player.buffs){
     if(b.reflectPct && enemy.hp>0){

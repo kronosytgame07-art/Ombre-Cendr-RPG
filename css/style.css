@@ -254,6 +254,10 @@ button{font-family:inherit;}
 .item-tooltip .it-type{color:var(--text-dim); font-size:0.85em; margin-bottom:6px;}
 .item-tooltip .it-stat{color:#7fd97f;}
 .item-tooltip .it-lore{color:var(--text-dim); font-style:italic; margin-top:6px;}
+.item-tooltip .it-compare{color:var(--text-dim); font-size:0.85em; margin-top:8px; padding-top:6px; border-top:1px solid var(--ash-3);}
+.it-delta-up{color:#7fd97f;}
+.it-delta-down{color:#ff6a6a;}
+.panel-hint{color:var(--text-dim); font-size:0.65em; text-transform:none; letter-spacing:normal; font-style:italic;}
 
 /* Skill tree */
 .skill-tabs{display:flex; gap:8px; padding:10px 16px 0;}

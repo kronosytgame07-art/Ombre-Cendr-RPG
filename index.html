@@ -143,6 +143,7 @@
       <div class="hud-buttons">
         <button class="icon-btn" id="btn-open-inventory" title="Inventaire (I)">🎒</button>
         <button class="icon-btn" id="btn-open-skills" title="Compétences (K)">🌳</button>
+        <button class="icon-btn" id="btn-open-quests" title="Quêtes (L)">📜</button>
         <button class="icon-btn" id="btn-open-codex" title="Codex (J)">📖</button>
         <button class="icon-btn" id="btn-open-map" title="Carte (M)">🗺️</button>
         <button class="icon-btn" id="btn-open-pause" title="Menu (Échap)">☰</button>
@@ -159,7 +160,7 @@
 
     <!-- Inventaire / Equipement -->
     <div id="panel-inventory" class="panel">
-      <div class="panel-header">Inventaire <button class="panel-close" data-close="panel-inventory">✕</button></div>
+      <div class="panel-header">Inventaire <span class="panel-hint">clic droit : détruire l'objet</span><button class="panel-close" data-close="panel-inventory">✕</button></div>
       <div class="inventory-layout">
         <div class="equip-doll" id="equip-doll"></div>
         <div class="char-sheet" id="char-sheet"></div>
@@ -193,6 +194,12 @@
       <div class="bigmap-wrap"><canvas id="bigmap-canvas"></canvas></div>
       <div class="panel-header sub">Voyage Rapide</div>
       <div class="worldmap-list" id="worldmap-list"></div>
+    </div>
+
+    <!-- Journal des quêtes -->
+    <div id="panel-questlog" class="panel">
+      <div class="panel-header">Journal des Quêtes <button class="panel-close" data-close="panel-questlog">✕</button></div>
+      <div class="npc-body" id="questlog-body"></div>
     </div>
 
     <!-- Dialogue PNJ (boutique / quêtes) -->

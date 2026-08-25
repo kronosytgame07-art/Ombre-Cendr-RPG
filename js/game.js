@@ -159,7 +159,8 @@ export class Game{
     this.floatingTexts = [];
     this.pendingLevelEvents = [];
     this.pendingNotices = [];
-    this.camera = {x:0, y:0, zoom:2.7};
+    this.camera = {x:0, y:0, zoom:2.7, shakeMag:0};
+    this.shakeEnabled = true;
     this.map = null;
     this.zone = null;
     this.bossActive = null;
@@ -224,6 +225,11 @@ export class Game{
     this.pendingNotices.push({type:'banner', text:bannerText});
   }
 
+  triggerShake(mag){
+    if(!this.shakeEnabled) return;
+    this.camera.shakeMag = Math.min(14, Math.max(this.camera.shakeMag, mag));
+  }
+
   // Place un PNJ près du point d'apparition de la zone (décalage défini dans
   // npcs.js), en se rabattant sur la case praticable la plus proche si le
   // décalage tombe sur un mur.
@@ -280,6 +286,7 @@ export class Game{
     if(this.paused) return;
     this.time += dt;
     const player = this.player;
+    if(this.camera.shakeMag>0){ this.camera.shakeMag *= Math.max(0, 1-dt*8); if(this.camera.shakeMag<0.05) this.camera.shakeMag=0; }
 
     for(const k in player.cooldowns){ if(player.cooldowns[k]>0) player.cooldowns[k] = Math.max(0, player.cooldowns[k]-dt); }
     if(player.action){ player.action.t += dt; if(player.action.t >= player.action.duration) player.action = null; }
@@ -547,7 +554,10 @@ export class Game{
 
     ctx.save();
     ctx.scale(this.camera.zoom, this.camera.zoom);
-    ctx.translate(-this.camera.x, -this.camera.y);
+    const shakeMag = this.camera.shakeMag||0;
+    const shakeX = shakeMag>0 ? (Math.random()*2-1)*shakeMag : 0;
+    const shakeY = shakeMag>0 ? (Math.random()*2-1)*shakeMag : 0;
+    ctx.translate(-this.camera.x+shakeX, -this.camera.y+shakeY);
 
     const x0 = Math.max(0, Math.floor(this.camera.x/TILE_SIZE)-1);
     const y0 = Math.max(0, Math.floor(this.camera.y/TILE_SIZE)-1);
