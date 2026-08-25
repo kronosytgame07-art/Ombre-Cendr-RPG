@@ -479,7 +479,7 @@ export function renderQuestLog(player){
   body.appendChild(list);
 }
 
-export function renderWorldMap(player, onTravel){
+export function renderWorldMap(player){
   const list = document.getElementById('worldmap-list');
   list.innerHTML = '';
   for(const zone of ZONES){
@@ -487,8 +487,8 @@ export function renderWorldMap(player, onTravel){
     const el = document.createElement('div');
     el.className = 'wm-entry' + (player.currentZone===zone.id ? ' current' : '');
     el.innerHTML = `<span>${unlocked?zone.name:'??? (verrouillé)'}</span><span class="wm-lvl">${zone.kind==='town'?'Ville':'Niv. '+zone.levelRange[0]+'-'+zone.levelRange[1]}</span>`;
-    if(unlocked) el.addEventListener('click', ()=> onTravel(zone.id));
-    else el.style.opacity = 0.4;
+    if(!unlocked) el.style.opacity = 0.4;
+    el.title=player.currentZone===zone.id?'Position actuelle':'Accessible uniquement à pied';
     list.appendChild(el);
   }
 }
