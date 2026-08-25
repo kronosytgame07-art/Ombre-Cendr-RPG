@@ -738,12 +738,13 @@ export class Game{
 
   drawEnemy(ctx, e){
     const def = e.isBoss ? null : e.def;
-    const isHumanoid = !e.isBoss && def.sprite.kind==='humanoid';
+    const isHumanoid=!e.isBoss&&def.sprite.kind==='humanoid';
+    const isAnimated=!e.isBoss&&!!def.sheet;
     let img, w, h, bob=0;
     if(e.isBoss){
       img = bossSpriteCanvas(e.defId); w=168; h=168;
       bob = Math.sin(this.time*3 + e.uid)*4;
-    } else if(isHumanoid){
+    } else if(isHumanoid||isAnimated){
       const walk = e.moving ? Math.sin(this.time*8+e.uid) : 0;
       const action = e.action ? {kind:e.action.kind, phase:Math.min(1,e.action.t/e.action.duration)} : null;
       img=enemySpriteCanvas(def,{walk,action},e);
