@@ -37,5 +37,10 @@ class InputManager{
   isDown(k){ return this.keys.has(k); }
   wasPressed(k){ return this.justPressed.has(k); }
   endFrame(){ this.justPressed.clear(); this.mouse.justDown=false; }
+  setVirtualKey(key,down){
+    key=key.toLowerCase();
+    if(down){if(!this.keys.has(key))this.justPressed.add(key);this.keys.add(key);}
+    else this.keys.delete(key);
+  }
 }
 export const Input = new InputManager();

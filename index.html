@@ -179,6 +179,30 @@
       </div>
     </div>
 
+    <!-- Commandes tactiles, affichées uniquement sur écran tactile paysage -->
+    <div id="mobile-controls" class="mobile-controls" aria-label="Commandes tactiles">
+      <div class="touch-dpad" aria-label="Déplacement">
+        <button class="touch-key up" data-virtual-key="z" aria-label="Haut">▲</button>
+        <button class="touch-key left" data-virtual-key="q" aria-label="Gauche">◀</button>
+        <button class="touch-key down" data-virtual-key="s" aria-label="Bas">▼</button>
+        <button class="touch-key right" data-virtual-key="d" aria-label="Droite">▶</button>
+      </div>
+      <div class="touch-actions" aria-label="Combat">
+        <button class="touch-key potion hp" data-virtual-key="r">PV</button>
+        <button class="touch-key skill" data-virtual-key="1">1</button>
+        <button class="touch-key skill" data-virtual-key="2">2</button>
+        <button class="touch-key attack" data-virtual-action="attack">ATQ</button>
+        <button class="touch-key skill" data-virtual-key="3">3</button>
+        <button class="touch-key skill" data-virtual-key="4">4</button>
+        <button class="touch-key potion mana" data-virtual-key="f">RES</button>
+      </div>
+      <div class="touch-utility">
+        <button class="touch-key" data-panel="panel-inventory">INV</button>
+        <button class="touch-key" data-panel="panel-pause">Ⅱ</button>
+      </div>
+    </div>
+    <div class="portrait-warning">Tournez l’appareil en mode paysage</div>
+
     <!-- Inventaire / Equipement -->
     <div id="panel-inventory" class="panel">
       <div class="panel-header">Inventaire <span class="panel-hint">clic droit : détruire l'objet</span><button class="panel-close" data-close="panel-inventory">✕</button></div>

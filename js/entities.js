@@ -141,28 +141,31 @@ export function playerSpriteCanvas(player, pose){
 
 function drawEquipmentLayer(ctx,player,col){
   const eq=player.equipment;
-  const rarity={commun:'#9b8d79',magique:'#4d8fff',rare:'#d9c942',epique:'#a84ee0',legendaire:'#e87927'};
-  const trim=rarity[(eq.arme||eq.plastron||eq.casque)?.rarity]||'#9b8d79';
-  // Reflets d'armure discrets qui conservent le sprite HD-2D original.
-  if(eq.plastron){ctx.fillStyle=trim;ctx.globalAlpha=.72;ctx.fillRect(45,42,3,18);ctx.fillRect(39,45,2,10);ctx.globalAlpha=1;}
-  if(eq.ceinture){ctx.fillStyle=trim;ctx.fillRect(38,61,20,3);ctx.fillStyle='#15100e';ctx.fillRect(46,61,3,3);}
-  if(eq.gants){ctx.fillStyle=trim;ctx.fillRect(30,53,4,7);ctx.fillRect(62,53,4,7);}
-  if(eq.bottes){ctx.fillStyle=trim;ctx.fillRect(39,78,7,6);ctx.fillRect(51,78,7,6);}
-  if(eq.amulette){ctx.fillStyle=trim;ctx.fillRect(47,48,2,7);ctx.fillRect(46,54,4,4);}
-  if(eq.casque){
-    ctx.fillStyle=trim;ctx.fillRect(39,25,18,5);ctx.fillRect(37,30,22,7);
-    ctx.fillStyle='#171415';ctx.fillRect(40,33,16,3);ctx.fillStyle=trim;ctx.fillRect(47,34,2,8);
-  }
-  // L'arme équipée reçoit un contour de rareté clairement visible ; le type
-  // est aussi dessiné dans la main active pour remplacer visuellement le loot.
+  const atlas=getImageSync('assets/sprites/items/equipment_atlas.png');
+  if(!atlas)return;
+  const cell={epee:0,hache:1,dague:2,arc:3,baton:4,sceptre:5,bouclier:6,
+    casque:7,plastron:8,gants:9,bottes:10,ceinture:11,anneau:12,amulette:13};
+  const piece=(index,x,y,w,h,flip=false)=>{
+    if(index==null)return;
+    const sx=(index%4)*128,sy=Math.floor(index/4)*128;
+    ctx.save();ctx.imageSmoothingEnabled=false;
+    if(flip){ctx.translate(x+w,y);ctx.scale(-1,1);ctx.drawImage(atlas,sx+5,sy+5,118,118,0,0,w,h);}
+    else ctx.drawImage(atlas,sx+5,sy+5,118,118,x,y,w,h);
+    ctx.restore();
+  };
+  // Chaque pièce vient du véritable atlas pixel-art. Aucun rectangle de
+  // substitution n'est généré par le moteur.
+  if(eq.plastron)piece(cell.plastron,33,38,30,31);
+  if(eq.ceinture)piece(cell.ceinture,36,57,24,15);
+  if(eq.gants){piece(cell.gants,24,48,17,17);piece(cell.gants,55,48,17,17,true);}
+  if(eq.bottes){piece(cell.bottes,34,68,17,21);piece(cell.bottes,46,68,17,21,true);}
+  if(eq.amulette)piece(cell.amulette,42,43,14,17);
+  if(eq.casque)piece(cell.casque,34,17,29,29);
+  if(eq.bouclier){const left=col>=4&&col<=6;piece(cell.bouclier,left?16:54,42,28,30,left);}
   if(eq.arme){
-    const right=col===0||col===1||col===7, hx=right?66:29, hy=57;
-    ctx.fillStyle='#100b09';ctx.fillRect(hx-2,hy-22,5,27);ctx.fillStyle=trim;
-    if(eq.arme.weaponClass==='epee'){ctx.fillRect(hx,hy-24,2,25);ctx.fillRect(hx-4,hy-3,10,3);}
-    else if(eq.arme.weaponClass==='hache'){ctx.fillRect(hx,hy-23,3,27);ctx.fillRect(hx-1,hy-24,10,8);}
-    else if(eq.arme.weaponClass==='dague'){ctx.fillRect(hx,hy-13,2,16);}
-    else if(eq.arme.weaponClass==='arc'){ctx.strokeStyle=trim;ctx.lineWidth=2;ctx.beginPath();ctx.arc(hx,hy-10,11,-1.2,1.2);ctx.stroke();}
-    else {ctx.fillRect(hx,hy-27,3,31);ctx.fillRect(hx-3,hy-29,9,7);}
+    const right=col===0||col===1||col===7;
+    const weaponCell=cell[eq.arme.weaponClass]??cell.epee;
+    piece(weaponCell,right?58:9,28,31,42,!right);
   }
 }
 

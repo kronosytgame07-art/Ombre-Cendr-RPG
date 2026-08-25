@@ -21,7 +21,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
   background:
     linear-gradient(90deg,rgba(3,3,4,.98) 0%,rgba(7,6,7,.92) 37%,rgba(7,6,7,.22) 70%,rgba(2,2,3,.7) 100%),
     radial-gradient(circle at 78% 31%,rgba(149,28,24,.48),transparent 9%),
-    url('../assets/ui/title-screen-v1.png') right center/contain no-repeat;
+    url('../assets/ui/title-screen-v1.png') right center/contain no-repeat,
+    url('../assets/ui/title-screen-v1.png') center/cover no-repeat;
 }
 #screen-menu .menu-vignette{z-index:0;background:radial-gradient(ellipse at 75% 45%,transparent 10%,rgba(0,0,0,.62) 100%)}
 #screen-menu .embers{z-index:1}
@@ -62,6 +63,8 @@ input[type=range]{appearance:none;height:12px;border:2px solid #4d3e35;backgroun
 
 /* HUD : barres lisibles, sans orbes ni emoji */
 .hud-left,.hud-right{bottom:26px}.hud-left{left:26px}.hud-right{right:26px}
+#screen-game>.hud{position:absolute;inset:0;width:auto;height:auto;z-index:3;pointer-events:none}
+#screen-game>.hud>*{pointer-events:auto}
 .orb{width:clamp(180px,18vw,290px);height:42px;clip-path:polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px);border:4px double #756052;background:#090606;box-shadow:0 0 0 3px #060505,5px 5px rgba(0,0,0,.8)}
 .orb::after{position:absolute;left:10px;top:-20px;color:#d4c6af;font-size:.58em;font-weight:bold;letter-spacing:.13em;text-shadow:2px 2px #000}
 .orb-health::after{content:"VITALITÉ"}.orb-mana::after{content:"RESSOURCE"}
@@ -93,6 +96,31 @@ html[data-quality="low"] .embers,html[data-quality="low"] .screen:not(#screen-ga
 html[data-quality="low"] .panel,html[data-quality="low"] .menu-btn{box-shadow:none}
 html[data-animation="reduced"] *,html[data-animation="reduced"] *::before,html[data-animation="reduced"] *::after{animation-duration:.001ms!important;transition-duration:.001ms!important}
 html[data-animation="rich"] .menu-btn:hover{box-shadow:inset 0 0 0 2px #080606,8px 8px #000,0 0 18px rgba(232,90,37,.28)}
+
+/* Commandes mobiles : masquées par défaut, grille pixel sans emoji. */
+.mobile-controls,.portrait-warning{display:none}
+.mobile-controls{position:absolute;inset:0;z-index:8;pointer-events:none;font-family:"Courier New",monospace;touch-action:none}
+.mobile-controls button{pointer-events:auto;touch-action:none;-webkit-tap-highlight-color:transparent}
+.touch-dpad{position:absolute;left:18px;bottom:22px;width:164px;height:164px}
+.touch-key{border:3px double #786253;background:rgba(14,10,9,.82);color:#e5d4b7;box-shadow:inset 0 0 0 2px #070505,4px 4px #000;font-weight:900}
+.touch-key:active,.touch-key.pressed{border-color:#e66b32;color:#ffd36d;background:rgba(74,31,20,.92);transform:translate(2px,2px)}
+.touch-dpad .touch-key{position:absolute;width:54px;height:54px;font-size:1.25rem;clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px)}
+.touch-dpad .up{left:55px;top:0}.touch-dpad .left{left:0;top:55px}.touch-dpad .down{left:55px;top:110px}.touch-dpad .right{left:110px;top:55px}
+.touch-actions{position:absolute;right:18px;bottom:18px;width:250px;height:176px}
+.touch-actions .touch-key{position:absolute;border-radius:50%;width:54px;height:54px;font-size:.82rem}
+.touch-actions .attack{width:72px;height:72px;right:4px;bottom:48px;border-color:#a94227;color:#ffd078}
+.touch-actions .skill:nth-of-type(2){left:55px;top:8px}.touch-actions .skill:nth-of-type(3){left:112px;top:0}.touch-actions .skill:nth-of-type(5){left:48px;bottom:6px}.touch-actions .skill:nth-of-type(6){left:108px;bottom:0}
+.touch-actions .hp{left:0;top:30px}.touch-actions .mana{left:0;bottom:24px;font-size:.68rem}
+.touch-utility{position:absolute;right:18px;top:80px;display:flex;gap:7px}.touch-utility .touch-key{width:48px;height:38px;font-size:.66rem}
+.portrait-warning{position:absolute;inset:0;z-index:50;place-items:center;text-align:center;padding:30px;background:#080606;color:#e8bd68;font:900 1rem "Courier New",monospace;letter-spacing:.1em;text-transform:uppercase}
+
+@media (pointer:coarse) and (orientation:landscape){
+  #screen-game>.mobile-controls{display:block}
+  .hud-left,.hud-right{bottom:205px}.hud-center{bottom:14px}.hud-buttons{display:none}.minimap{width:112px;height:112px}
+}
+@media (pointer:coarse) and (orientation:portrait){
+  #screen-game>.portrait-warning{display:grid}
+}
 
 @media(max-width:900px){
   #screen-menu{align-items:center;padding-left:28px;padding-right:28px}.title-lockup{width:min(650px,88vw)}.menu-list{width:min(430px,82vw)}

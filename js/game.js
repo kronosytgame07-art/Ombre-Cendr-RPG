@@ -159,6 +159,7 @@ export class Game{
     this.deathHandled = false;
     this.victoryHandled = false;
     Input.bindCanvas(canvas, this.camera);
+    this.bindMobileControls();
     this.resize();
     window.addEventListener('resize', ()=>this.resize());
   }
@@ -168,6 +169,28 @@ export class Game{
     this.canvas.width = Math.floor(rect.width);
     this.canvas.height = Math.floor(rect.height);
     this.ctx.imageSmoothingEnabled = false;
+  }
+
+  bindMobileControls(){
+    document.querySelectorAll('[data-virtual-key]').forEach(btn=>{
+      if(btn.dataset.bound) return;btn.dataset.bound='1';
+      const key=btn.dataset.virtualKey;
+      const down=e=>{e.preventDefault();btn.classList.add('pressed');Input.setVirtualKey(key,true);};
+      const up=e=>{e.preventDefault();btn.classList.remove('pressed');Input.setVirtualKey(key,false);};
+      btn.addEventListener('pointerdown',down);btn.addEventListener('pointerup',up);
+      btn.addEventListener('pointercancel',up);btn.addEventListener('pointerleave',up);
+    });
+    const attack=document.querySelector('[data-virtual-action="attack"]');
+    if(attack&&!attack.dataset.bound){
+      attack.dataset.bound='1';
+      const down=e=>{e.preventDefault();attack.classList.add('pressed');
+        const facing=this.player?.facing||{x:0,y:1};
+        Input.mouse.worldX=(this.player?.pos.x||0)+facing.x*180;
+        Input.mouse.worldY=(this.player?.pos.y||0)+facing.y*180;
+        Input.mouse.down=true;Input.mouse.justDown=true;};
+      const up=e=>{e.preventDefault();attack.classList.remove('pressed');Input.mouse.down=false;};
+      attack.addEventListener('pointerdown',down);attack.addEventListener('pointerup',up);attack.addEventListener('pointercancel',up);
+    }
   }
 
   enterZone(zoneId){
@@ -205,7 +228,7 @@ export class Game{
     this.tileCache = {
       floor: [0,1,2,3].map(i=>makeTile(zone.floorTile, i)),
       wall: [0,1,2].map(i=>makeTile(zone.wallTile, 10+i)),
-      accent: makeTile(zone.accentTile, 20),
+      accent: [20,21,22].map(i=>makeTile(zone.accentTile, i)),
     };
     this.notify(zone.name);
   }
@@ -607,10 +630,13 @@ export class Game{
     for(let y=y0;y<y1;y++){
       for(let x=x0;x<x1;x++){
         const walkable = isWalkable(this.map, x, y);
-        const variants = this.zone.kind==='town' ? this.tileCache.floor : (walkable ? this.tileCache.floor : this.tileCache.wall);
+        const onTownPath=this.zone.kind==='town'&&walkable&&
+          (Math.abs(x-this.map.spawn.x)<=1||Math.abs(y-this.map.spawn.y)<=1);
+        const variants = onTownPath ? this.tileCache.accent :
+          (this.zone.kind==='town' ? this.tileCache.floor : (walkable ? this.tileCache.floor : this.tileCache.wall));
         const idx = tileVariantIndex(x,y) % variants.length;
         ctx.drawImage(variants[idx], x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE, TILE_SIZE);
-        if(walkable){
+        if(walkable&&this.zone.kind!=='town'){
           const decor = decorAt(x,y,this.zone.floorTile);
           if(decor!=null) drawFloorDecor(ctx, x*TILE_SIZE, y*TILE_SIZE, decor, this.zone.floorTile, this.time);
         }
