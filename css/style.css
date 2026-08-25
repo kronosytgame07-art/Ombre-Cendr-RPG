@@ -194,6 +194,7 @@ button{font-family:inherit;}
 .zone-banner.show{opacity:1;}
 
 .floating-texts{position:absolute; inset:0; pointer-events:none; overflow:hidden;}
+.screen > .floating-texts{pointer-events:none;}
 .ftext{position:absolute; font-weight:bold; font-size:14px; text-shadow:1px 1px 2px #000; animation:floatUp 1s ease-out forwards;}
 @keyframes floatUp{from{transform:translateY(0); opacity:1;} to{transform:translateY(-40px); opacity:0;}}
 
