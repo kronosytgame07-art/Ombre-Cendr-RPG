@@ -68,6 +68,7 @@ export const ENEMY_TYPES = {
   maraudeur_corrompu: {
     id:'maraudeur_corrompu', name:'Maraudeur Corrompu', family:'mort-vivant',
     sprite:{kind:'humanoid', weapon:'hache', undead:true, cloth:'#2c3a2a', accent:'#4a1f1f', armor:'lourd'},
+    sheet:'assets/sprites/enemies/maraudeur_corrompu_8dir.png',
     behavior:'melee', speed:1.0, aggroRange:220, atkRange:36, atkCooldown:1.3,
     base:{hp:42, dmg:[7,13], armor:5, xp:14},
     resist:{}, zones:['marais'],
