@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ombre Cendrée</title>
 <link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/ui-reforge.css">
 </head>
 <body>
 
@@ -21,17 +22,23 @@
   <div id="screen-menu" class="screen">
     <div class="menu-vignette"></div>
     <div class="embers" id="embers-layer"></div>
-    <h1 class="game-title">OMBRE <span>CENDRÉE</span></h1>
-    <div class="game-subtitle">Un royaume de cendre et d'ombre attend son dernier survivant</div>
-    <nav class="menu-list" id="main-menu-list">
+    <div class="title-lockup">
+      <div class="title-sigil" aria-hidden="true"><span></span></div>
+      <h1 class="game-title">OMBRE <span>CENDRÉE</span></h1>
+      <div class="game-subtitle">Un royaume de cendre et d'ombre attend son dernier survivant</div>
+    </div>
+    <nav class="menu-list" id="main-menu-list" aria-label="Menu principal">
       <button class="menu-btn" data-action="continue">Continuer</button>
       <button class="menu-btn" data-action="new">Nouvelle Partie</button>
-      <button class="menu-btn" data-action="load">Charger une Partie</button>
       <button class="menu-btn" data-action="options">Options</button>
-      <button class="menu-btn" data-action="codex">Codex du Monde</button>
-      <button class="menu-btn" data-action="credits">Crédits</button>
+      <button class="menu-btn ghost" data-action="quit">Quitter</button>
     </nav>
-    <div class="menu-version">v1.0 — Chapitre I : La Faille</div>
+    <div class="menu-secondary" id="menu-secondary">
+      <button data-action="load">Sauvegardes</button><span>◆</span>
+      <button data-action="codex">Codex</button><span>◆</span>
+      <button data-action="credits">Crédits</button>
+    </div>
+    <div class="menu-version">v1.0.0 <span>Chapitre I · La Faille</span></div>
   </div>
 
   <!-- ===================== CHOIX DE PERSONNAGE ===================== -->
@@ -67,13 +74,15 @@
   <!-- ===================== OPTIONS ===================== -->
   <div id="screen-options" class="screen">
     <h2 class="section-title">Options</h2>
-    <div class="options-panel">
+    <div class="options-panel ornate-panel">
+      <div class="option-group-title">Audio</div>
       <label class="opt-row">Volume Musique
-        <input type="range" id="opt-music" min="0" max="100" value="40">
+        <span class="range-wrap"><input type="range" id="opt-music" min="0" max="100" value="40"><output id="out-music">40</output></span>
       </label>
       <label class="opt-row">Volume Effets
-        <input type="range" id="opt-sfx" min="0" max="100" value="60">
+        <span class="range-wrap"><input type="range" id="opt-sfx" min="0" max="100" value="60"><output id="out-sfx">60</output></span>
       </label>
+      <div class="option-group-title">Jeu</div>
       <label class="opt-row">Difficulté
         <select id="opt-difficulty">
           <option value="novice">Novice</option>
@@ -82,9 +91,21 @@
           <option value="nihilash">Cauchemar de Nihilash</option>
         </select>
       </label>
-      <label class="opt-row">Taille de l'interface
-        <input type="range" id="opt-uiscale" min="80" max="130" value="100">
+      <div class="option-group-title">Affichage</div>
+      <label class="opt-row">Qualité visuelle
+        <select id="opt-quality">
+          <option value="low">Basse</option><option value="medium">Moyenne</option><option value="high" selected>Haute</option>
+        </select>
       </label>
+      <label class="opt-row">Niveau d'animation
+        <select id="opt-animation">
+          <option value="reduced">Réduit</option><option value="normal" selected>Normal</option><option value="rich">Riche</option>
+        </select>
+      </label>
+      <label class="opt-row">Taille de l'interface
+        <span class="range-wrap"><input type="range" id="opt-uiscale" min="80" max="130" value="100"><output id="out-uiscale">100%</output></span>
+      </label>
+      <label class="opt-row checkbox-row"><input type="checkbox" id="opt-lighting" checked><span>Effets d'éclairage</span></label>
       <label class="opt-row checkbox-row"><input type="checkbox" id="opt-shake" checked> Tremblement de caméra</label>
     </div>
     <button class="menu-btn small ghost" id="btn-back-options">Retour</button>
@@ -141,12 +162,12 @@
       </div>
 
       <div class="hud-buttons">
-        <button class="icon-btn" id="btn-open-inventory" title="Inventaire (I)">🎒</button>
-        <button class="icon-btn" id="btn-open-skills" title="Compétences (K)">🌳</button>
-        <button class="icon-btn" id="btn-open-quests" title="Quêtes (L)">📜</button>
-        <button class="icon-btn" id="btn-open-codex" title="Codex (J)">📖</button>
-        <button class="icon-btn" id="btn-open-map" title="Carte (M)">🗺️</button>
-        <button class="icon-btn" id="btn-open-pause" title="Menu (Échap)">☰</button>
+        <button class="icon-btn" id="btn-open-inventory" title="Inventaire (I)" aria-label="Inventaire"><span>INV</span><b>I</b></button>
+        <button class="icon-btn" id="btn-open-skills" title="Compétences (K)" aria-label="Compétences"><span>TAL</span><b>K</b></button>
+        <button class="icon-btn" id="btn-open-quests" title="Quêtes (L)" aria-label="Quêtes"><span>QTE</span><b>L</b></button>
+        <button class="icon-btn" id="btn-open-codex" title="Codex (J)" aria-label="Codex"><span>CDX</span><b>J</b></button>
+        <button class="icon-btn" id="btn-open-map" title="Carte (M)" aria-label="Carte"><span>MAP</span><b>M</b></button>
+        <button class="icon-btn" id="btn-open-pause" title="Menu (Échap)" aria-label="Pause"><span>Ⅱ</span><b>ESC</b></button>
       </div>
 
       <div class="zone-banner" id="zone-banner"></div>
@@ -211,7 +232,9 @@
 
     <!-- Menu pause -->
     <div id="panel-pause" class="panel">
-      <div class="panel-header">Pause</div>
+      <div class="pause-crest" aria-hidden="true">◆</div>
+      <div class="panel-header">Jeu en pause</div>
+      <div class="pause-subtitle">Les cendres attendent votre retour</div>
       <div class="pause-list">
         <button class="menu-btn small" id="btn-resume">Reprendre</button>
         <button class="menu-btn small" id="btn-save-game">Sauvegarder</button>

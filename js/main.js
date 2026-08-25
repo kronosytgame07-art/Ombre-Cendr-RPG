@@ -16,7 +16,8 @@ const HERO_IMAGE_PATHS = [...CLASSES.flatMap(c=>[c.sprite, c.sheet].filter(Boole
 let game = null;
 let currentSlot = null;
 let selectedClassId = CLASSES[0].id;
-let options = loadOptions() || {music:40, sfx:60, difficulty:'cendre', uiScale:100, shake:true};
+const DEFAULT_OPTIONS = {music:40, sfx:60, difficulty:'cendre', uiScale:100, shake:true, quality:'high', animation:'normal', lighting:true};
+let options = {...DEFAULT_OPTIONS, ...(loadOptions() || {})};
 setDifficulty(options.difficulty);
 setVolumes(options.sfx/100, options.music/100);
 document.addEventListener('pointerdown', unlockAudio, {once:true});
@@ -29,9 +30,16 @@ function showScreen(id){
 }
 function applyOptionsToDom(){
   document.documentElement.style.setProperty('--ui-scale', (options.uiScale/100).toString());
+  document.documentElement.dataset.quality = options.quality;
+  document.documentElement.dataset.animation = options.animation;
+  document.documentElement.dataset.lighting = options.lighting ? 'on' : 'off';
   $('opt-music').value = options.music; $('opt-sfx').value = options.sfx;
   $('opt-difficulty').value = options.difficulty; $('opt-uiscale').value = options.uiScale;
+  $('opt-quality').value = options.quality; $('opt-animation').value = options.animation;
+  $('opt-lighting').checked = options.lighting;
   $('opt-shake').checked = options.shake;
+  $('out-music').value = options.music; $('out-sfx').value = options.sfx;
+  $('out-uiscale').value = `${options.uiScale}%`;
 }
 
 // ============================= BOOT =============================
@@ -73,6 +81,18 @@ $('main-menu-list').addEventListener('click', (e)=>{
   else if(action==='options'){ showScreen('screen-options'); }
   else if(action==='codex'){ renderCodex($('codex-list-outer'), $('codex-content-outer'), fakePlayerForCodex()); showScreen('screen-codex'); }
   else if(action==='credits'){ showScreen('screen-credits'); }
+  else if(action==='quit'){
+    if(confirm('Quitter Ombre Cendrée ?')){
+      window.close();
+      showHint('Vous pouvez maintenant fermer cet onglet.');
+    }
+  }
+});
+$('menu-secondary').addEventListener('click', (e)=>{
+  const action = e.target.closest('button')?.dataset.action;
+  if(action==='load'){ renderLoadScreen(); showScreen('screen-load'); }
+  else if(action==='codex'){ renderCodex($('codex-list-outer'), $('codex-content-outer'), fakePlayerForCodex()); showScreen('screen-codex'); }
+  else if(action==='credits'){ showScreen('screen-credits'); }
 });
 function fakePlayerForCodex(){ return {codex:{bestiary:[]}, defeatedBosses:[], unlockedZones:[]}; }
 
@@ -81,11 +101,12 @@ $('btn-back-options').addEventListener('click', ()=>{ showScreen(game?'screen-ga
 $('btn-back-codex').addEventListener('click', ()=>showScreen('screen-menu'));
 $('btn-back-credits').addEventListener('click', ()=>showScreen('screen-menu'));
 
-['opt-music','opt-sfx','opt-difficulty','opt-uiscale','opt-shake'].forEach(id=>{
+['opt-music','opt-sfx','opt-difficulty','opt-uiscale','opt-shake','opt-quality','opt-animation','opt-lighting'].forEach(id=>{
   $(id).addEventListener('input', ()=>{
     options = {
       music:+$('opt-music').value, sfx:+$('opt-sfx').value, difficulty:$('opt-difficulty').value,
       uiScale:+$('opt-uiscale').value, shake:$('opt-shake').checked,
+      quality:$('opt-quality').value, animation:$('opt-animation').value, lighting:$('opt-lighting').checked,
     };
     applyOptionsToDom(); saveOptions(options); setDifficulty(options.difficulty);
     setVolumes(options.sfx/100, options.music/100);
