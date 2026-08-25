@@ -59,6 +59,7 @@ export const ENEMY_TYPES = {
   serpent_desert: {
     id:'serpent_desert', name:'Serpent du Désert', family:'bête',
     sprite:{kind:'creature', shape:'serpent', main:'#c9a860', eye:'#ff6a2b'},
+    sheet:'assets/sprites/enemies/serpent_desert_8dir.png',
     behavior:'melee', speed:1.7, aggroRange:220, atkRange:30, atkCooldown:0.9,
     base:{hp:28, dmg:[5,9], armor:1, xp:10, poisonOnHit:0.3},
     resist:{feu:20}, zones:['desert'],
