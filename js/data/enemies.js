@@ -32,6 +32,7 @@ export const ENEMY_TYPES = {
   chauvesouris_braise: {
     id:'chauvesouris_braise', name:'Chauve-souris de Braise', family:'bête',
     sprite:{kind:'creature', shape:'chauvesouris', main:'#5a1f14', eye:'#ffb347'},
+    sheet:'assets/sprites/enemies/chauvesouris_braise_8dir.png',
     behavior:'melee', speed:2.0, aggroRange:240, atkRange:26, atkCooldown:0.8,
     base:{hp:14, dmg:[2,5], armor:0, xp:5},
     resist:{feu:40}, zones:['volcan'],
