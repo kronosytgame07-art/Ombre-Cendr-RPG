@@ -9,7 +9,9 @@ import { drawItemIcon } from './engine/sprites.js';
 import { generateItem } from './data/items.js';
 import { Rng } from './engine/rng.js';
 import { QUESTS } from './data/quests.js';
+import { NPCS } from './data/npcs.js';
 import { acceptQuest, turnInQuest } from './systems/quests.js';
+import { playSfx } from './engine/audio.js';
 
 const EQUIP_SLOTS = [
   {key:'casque', label:'Casque'}, {key:'amulette', label:'Amulette'},
@@ -24,14 +26,32 @@ function iconCanvas(item, size=48){
   return c;
 }
 
-function itemTooltipHtml(item){
+function statDelta(newVal, oldVal){
+  if(oldVal==null) return '';
+  const diff = newVal-oldVal;
+  if(diff===0) return '';
+  return ` <span class="${diff>0?'it-delta-up':'it-delta-down'}">(${diff>0?'+':''}${diff})</span>`;
+}
+// compareItem : undefined = pas de comparaison demandée (objet déjà équipé) ;
+// null = comparaison demandée mais rien d'équipé dans cet emplacement ;
+// objet = comparaison contre l'objet actuellement équipé dans ce slot.
+function itemTooltipHtml(item, compareItem){
   let html = `<div class="it-name rarity-${rarityCls(item.rarity)}">${item.name}</div>`;
   html += `<div class="it-type">${slotLabel(item.slot)}${item.itemLevel?(' — Niv. objet '+item.itemLevel):''}</div>`;
-  if(item.dmgMin) html += `<div class="it-stat">Dégâts : ${item.dmgMin}-${item.dmgMax}</div>`;
-  if(item.armor) html += `<div class="it-stat">Armure : ${item.armor}</div>`;
+  if(item.dmgMin){
+    const avgNew = Math.round((item.dmgMin+item.dmgMax)/2);
+    const avgOld = compareItem && compareItem.dmgMin ? Math.round((compareItem.dmgMin+compareItem.dmgMax)/2) : null;
+    html += `<div class="it-stat">Dégâts : ${item.dmgMin}-${item.dmgMax}${statDelta(avgNew, avgOld)}</div>`;
+  }
+  if(item.armor) html += `<div class="it-stat">Armure : ${item.armor}${statDelta(item.armor, compareItem?(compareItem.armor||0):null)}</div>`;
   for(const a of (item.affixes||[])) html += `<div class="it-stat">${a.text}</div>`;
   if(item.specialText) html += `<div class="it-stat">${item.specialText}</div>`;
   if(item.lore) html += `<div class="it-lore">"${item.lore}"</div>`;
+  if(compareItem!==undefined){
+    html += compareItem
+      ? `<div class="it-compare">Actuellement équipé : ${compareItem.name}</div>`
+      : `<div class="it-compare">Aucun objet équipé dans cet emplacement.</div>`;
+  }
   return html;
 }
 function rarityCls(r){ return {commun:'common',magique:'magic',rare:'rare',epique:'epic',legendaire:'legend'}[r]||'common'; }
@@ -43,8 +63,8 @@ function slotLabel(slot){
 export function initTooltip(){
   return document.getElementById('item-tooltip');
 }
-export function showTooltip(tooltipEl, item, x, y){
-  tooltipEl.innerHTML = itemTooltipHtml(item);
+export function showTooltip(tooltipEl, item, x, y, compareItem){
+  tooltipEl.innerHTML = itemTooltipHtml(item, compareItem);
   tooltipEl.style.display = 'block';
   tooltipEl.style.left = Math.min(x+14, window.innerWidth-270)+'px';
   tooltipEl.style.top = Math.min(y+14, window.innerHeight-200)+'px';
@@ -91,13 +111,22 @@ export function renderInventory(player, onChange){
     if(item){
       const cv = iconCanvas(item);
       cell.appendChild(cv);
-      cell.addEventListener('mousemove', e=>showTooltip(tooltip, item, e.clientX, e.clientY));
+      const equippedForCompare = item.slot==='anneau'
+        ? (player.equipment.anneau1||player.equipment.anneau2||null)
+        : (player.equipment[item.slot]||null);
+      cell.addEventListener('mousemove', e=>showTooltip(tooltip, item, e.clientX, e.clientY, equippedForCompare));
       cell.addEventListener('mouseleave', ()=>hideTooltip(tooltip));
       cell.addEventListener('click', ()=>{
         const slotKey = item.slot==='anneau' ? (player.equipment.anneau1?(player.equipment.anneau2?'anneau1':'anneau2'):'anneau1') : item.slot;
         const prev = player.equipment[slotKey];
         player.equipment[slotKey] = item;
         player.inventory[i] = prev;
+        onChange();
+      });
+      cell.addEventListener('contextmenu', e=>{
+        e.preventDefault();
+        player.inventory[i] = null;
+        hideTooltip(tooltip);
         onChange();
       });
     }
@@ -319,6 +348,7 @@ function potionCard(kind, price, label, player, onChange){
   card.appendChild(priceEl);
   card.addEventListener('click', ()=>{
     if(player.gold < price) return;
+    playSfx('purchase');
     player.gold -= price;
     player.potions[kind] = (player.potions[kind]||0)+1;
     onChange();
@@ -352,6 +382,7 @@ export function renderShop(npc, player, onChange){
       if(player.gold < price) return;
       const freeIdx = player.inventory.findIndex(x=>x===null);
       if(freeIdx===-1) return;
+      playSfx('purchase');
       player.gold -= price;
       player.inventory[freeIdx] = item;
       npc.stock = npc.stock.filter(x=>x!==item);
@@ -369,6 +400,7 @@ export function renderShop(npc, player, onChange){
     hasSellable = true;
     const value = sellValueForItem(item);
     sellGrid.appendChild(shopCard(item, value, tooltip, ()=>{
+      playSfx('purchase');
       player.gold += value;
       player.inventory[i] = null;
       onChange();
@@ -403,7 +435,7 @@ export function renderQuestGiver(npc, player, onChange, onRewardXp){
     row.innerHTML = `<h4>${def.name}</h4>${statusHtml}`;
     if(!state){
       const btn = document.createElement('button'); btn.className='menu-btn small'; btn.textContent='Accepter';
-      btn.addEventListener('click', ()=>{ acceptQuest(player, qid); onChange(); });
+      btn.addEventListener('click', ()=>{ acceptQuest(player, qid); playSfx('ui'); onChange(); });
       row.appendChild(btn);
     } else if(state.done && !state.turnedIn){
       const btn = document.createElement('button'); btn.className='menu-btn small'; btn.textContent='Rendre la quête';
@@ -414,6 +446,34 @@ export function renderQuestGiver(npc, player, onChange, onRewardXp){
       });
       row.appendChild(btn);
     }
+    list.appendChild(row);
+  }
+  body.appendChild(list);
+}
+
+// ---------------------------------------------------------------------
+// JOURNAL DES QUÊTES (toutes les quêtes acceptées, hors dialogue PNJ)
+// ---------------------------------------------------------------------
+export function renderQuestLog(player){
+  const body = document.getElementById('questlog-body');
+  body.innerHTML = '';
+  const ids = Object.keys(player.quests);
+  if(!ids.length){
+    body.innerHTML = '<div class="shop-empty">Aucune quête en cours. Parlez aux PNJ de Cendre-Refuge pour en accepter.</div>';
+    return;
+  }
+  const list = document.createElement('div'); list.className = 'quest-list';
+  for(const qid of ids){
+    const def = QUESTS[qid];
+    if(!def) continue;
+    const state = player.quests[qid];
+    const giver = NPCS.find(n=>n.id===def.giver);
+    const row = document.createElement('div'); row.className = 'quest-row';
+    let statusHtml;
+    if(state.turnedIn) statusHtml = `<div class="q-done">Terminée.</div>`;
+    else if(state.done) statusHtml = `<div class="q-ready">Prête à être rendue — retournez voir ${giver?giver.name:'le donneur de quête'}.</div>`;
+    else statusHtml = `<div class="q-progress">Progression : ${state.progress}/${def.count}</div>`;
+    row.innerHTML = `<h4>${def.name}</h4><div class="q-desc">${def.desc}</div>${statusHtml}`;
     list.appendChild(row);
   }
   body.appendChild(list);
