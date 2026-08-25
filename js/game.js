@@ -683,16 +683,46 @@ export class Game{
     if(!atlas) return;
     const col=prop.cell%4, row=Math.floor(prop.cell/4);
     const large=prop.cell<8;
+    const isTree=prop.cell>=4&&prop.cell<=7;
+    const isFire=prop.cell===10;
     const base=large?128:88;
     const size=Math.round(base*(prop.scale||1));
+    const seed=prop.x*0.71+prop.y*1.37;
+    // Animation volontairement quantifiée : mouvement vivant sans aucun flou sub-pixel.
+    const sway=isTree ? Math.round(Math.sin(this.time*1.25+seed)*2)*0.006 : 0;
+    const fireStep=isFire ? Math.floor(this.time*10)%4 : 0;
+    const firePulse=isFire ? [0.96,1.03,0.99,1.06][fireStep] : 1;
     ctx.save();
     ctx.imageSmoothingEnabled=false;
-    // Ombre de contact indépendante : elle détache les accessoires du pavé.
     ctx.globalAlpha=large?0.34:0.25; ctx.fillStyle='#000';
     ctx.beginPath(); ctx.ellipse(prop.pos.x,prop.pos.y,size*0.28,Math.max(4,size*0.07),0,0,Math.PI*2); ctx.fill();
     ctx.globalAlpha=1;
-    ctx.drawImage(atlas,col*128,row*128,128,128,prop.pos.x-size/2,prop.pos.y-size+8,size,size);
+    ctx.translate(Math.round(prop.pos.x),Math.round(prop.pos.y));
+    if(isTree) ctx.rotate(sway);
+    if(isFire) ctx.scale(firePulse,1/firePulse);
+    ctx.drawImage(atlas,col*128,row*128,128,128,Math.round(-size/2),Math.round(-size+8),size,size);
     ctx.restore();
+
+    if(isFire){
+      ctx.save();
+      ctx.imageSmoothingEnabled=false;
+      const pulse=0.12+(fireStep*0.025);
+      const glow=ctx.createRadialGradient(prop.pos.x,prop.pos.y-22,2,prop.pos.x,prop.pos.y-16,58);
+      glow.addColorStop(0,`rgba(255,174,58,${pulse+0.14})`);
+      glow.addColorStop(1,'rgba(255,72,18,0)');
+      ctx.fillStyle=glow; ctx.fillRect(prop.pos.x-60,prop.pos.y-78,120,82);
+      // Braises carrées : trajectoires répétables, sans interpolation lissée.
+      for(let i=0;i<7;i++){
+        const cycle=(this.time*(0.65+i*0.07)+i*0.19)%1;
+        const bx=Math.round(prop.pos.x+Math.sin(seed+i*2.1)*13*(1-cycle));
+        const by=Math.round(prop.pos.y-42-cycle*42);
+        const s=cycle<0.55?3:2;
+        ctx.globalAlpha=1-cycle;
+        ctx.fillStyle=i%2?'#ffb52e':'#ff5a1f';
+        ctx.fillRect(bx,by,s,s);
+      }
+      ctx.restore();
+    }
   }
 
   drawNpc(ctx, npc){
