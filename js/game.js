@@ -168,28 +168,20 @@ function drawGate(ctx,map,side,view){
   const exit=side==='top'?map.exits.north:map.exits.south;
   if(!exit)return;
   const center=exit.x*TILE_SIZE+TILE_SIZE/2;
-  const y=side==='top'?0:(map.h-2)*TILE_SIZE;
-  const bounds={left:center-TILE_SIZE*3,top:y-TILE_SIZE,right:center+TILE_SIZE*3,bottom:y+TILE_SIZE*3};
+  const y=side==='top'?0:(map.h-1)*TILE_SIZE;
+  const bounds={left:center-TILE_SIZE*3,top:y-TILE_SIZE,right:center+TILE_SIZE*3,bottom:y+TILE_SIZE*2};
   if(!rectIntersects(bounds,view))return;
   ctx.save();ctx.imageSmoothingEnabled=false;
-  // Chaussée continue sous l'entrée ouverte.
-  ctx.fillStyle='#272527';ctx.fillRect(center-TILE_SIZE*2,y,TILE_SIZE*4,TILE_SIZE*2);
-  for(let row=0;row<2;row++)for(let col=-2;col<2;col++){
-    const x=center+col*TILE_SIZE;
-    ctx.strokeStyle='#4d4947';ctx.strokeRect(x+1,y+row*TILE_SIZE+1,TILE_SIZE-2,TILE_SIZE-2);
-  }
-  // Deux tours carrées en blocs, directement raccordées aux remparts.
+  // La route de la tilemap reste visible et traverse réellement l'enceinte.
+  // Deux piliers compacts terminent proprement le mur sans dalle noire.
   for(const dir of [-1,1]){
-    const towerX=center+dir*TILE_SIZE*2-(dir<0?TILE_SIZE:0);
-    ctx.fillStyle='#242326';ctx.fillRect(towerX,y-TILE_SIZE,TILE_SIZE,TILE_SIZE*3);
+    const towerX=px(center+dir*TILE_SIZE*2.5-TILE_SIZE/2);
     ctx.drawImage(rampartTile(side,Math.abs(dir)),towerX,y,TILE_SIZE,TILE_SIZE);
-    ctx.drawImage(rampartTile(side,Math.abs(dir)+1),towerX,y+TILE_SIZE,TILE_SIZE,TILE_SIZE);
-    ctx.fillStyle='#77706a';
-    for(let i=0;i<3;i++)ctx.fillRect(towerX+i*14,y-TILE_SIZE,9,10);
+    ctx.fillStyle='#1b1715';ctx.fillRect(towerX+7,y+7,26,26);
+    ctx.fillStyle='#5d5854';ctx.fillRect(towerX+10,y+10,20,20);
+    ctx.fillStyle='#ff7628';ctx.fillRect(towerX+17,y+13,6,12);
+    ctx.fillStyle='#ffd05b';ctx.fillRect(towerX+19,y+15,3,7);
   }
-  // Traverse et herse relevée : l'ouverture reste clairement praticable.
-  ctx.fillStyle='#171516';ctx.fillRect(center-TILE_SIZE*2,y-9,TILE_SIZE*4,9);
-  ctx.fillStyle='#70543a';ctx.fillRect(center-TILE_SIZE*1.5,y-5,TILE_SIZE*3,5);
   ctx.restore();
 }
 
@@ -197,14 +189,14 @@ function drawFortifiedPerimeter(ctx,map,view){
   const topGate=map.exits.north?.x??Math.floor(map.w/2);
   const bottomGate=map.exits.south?.x??Math.floor(map.w/2);
   ctx.save();ctx.imageSmoothingEnabled=false;
-  for(let x=0;x<map.w;x++)for(let depth=0;depth<2;depth++){
+  for(let x=0;x<map.w;x++)for(let depth=0;depth<1;depth++){
     const topY=depth*TILE_SIZE,bottomY=(map.h-1-depth)*TILE_SIZE;
     if(Math.abs(x-topGate)>2&&rectIntersects({left:x*TILE_SIZE,top:topY,right:(x+1)*TILE_SIZE,bottom:topY+TILE_SIZE},view))
       ctx.drawImage(rampartTile('top',(x+depth)%3),x*TILE_SIZE,topY);
     if(Math.abs(x-bottomGate)>2&&rectIntersects({left:x*TILE_SIZE,top:bottomY,right:(x+1)*TILE_SIZE,bottom:bottomY+TILE_SIZE},view))
       ctx.drawImage(rampartTile('bottom',(x+depth)%3),x*TILE_SIZE,bottomY);
   }
-  for(let y=2;y<map.h-2;y++)for(let depth=0;depth<2;depth++){
+  for(let y=1;y<map.h-1;y++)for(let depth=0;depth<1;depth++){
     const leftX=depth*TILE_SIZE,rightX=(map.w-1-depth)*TILE_SIZE;
     if(rectIntersects({left:leftX,top:y*TILE_SIZE,right:leftX+TILE_SIZE,bottom:(y+1)*TILE_SIZE},view))
       ctx.drawImage(rampartTile('left',(y+depth)%3),leftX,y*TILE_SIZE);
@@ -222,7 +214,7 @@ function wallGuardDrawables(map,time,view){
     const span=Math.max(1,maxX-minX),phase=(time*24+i*span/6)%span;
     const backwards=i%2===1;
     const x=px(backwards?maxX-phase:minX+phase);
-    const y=(i<3?1.45:map.h-1.45)*TILE_SIZE;
+    const y=(i<3?2.2:map.h-2.2)*TILE_SIZE;
     const pos={x,y:px(y)};
     if(visiblePoint(pos,view,80))guards.push({isWallGuard:true,pos,facing:{x:backwards?-1:1,y:0},step:Math.floor(time*8+i)%2});
   }
@@ -507,9 +499,12 @@ export class Game{
   handleWorldTransition(){
     if(this.worldTransitionLock>0||!this.map?.exits)return false;
     const index=ZONES.findIndex(z=>z.id===this.zone.id);
-    const ty=this.player.pos.y/TILE_SIZE;
-    if(ty<1.15&&index>0){this.enterZone(ZONES[index-1].id,'south');return true;}
-    if(ty>this.map.h-1.15&&index<ZONES.length-1){
+    const tx=this.player.pos.x/TILE_SIZE,ty=this.player.pos.y/TILE_SIZE;
+    const north=this.map.exits.north,south=this.map.exits.south;
+    const atNorthGate=north&&Math.abs(tx-(north.x+.5))<2.25&&ty<2.15;
+    const atSouthGate=south&&Math.abs(tx-(south.x+.5))<2.25&&ty>this.map.h-2.15;
+    if(atNorthGate&&index>0){this.enterZone(ZONES[index-1].id,'south');return true;}
+    if(atSouthGate&&index<ZONES.length-1){
       const destination=ZONES[index+1];
       if(!this.player.unlockedZones.includes(destination.id))this.player.unlockedZones.push(destination.id);
       this.enterZone(destination.id,'north');return true;
