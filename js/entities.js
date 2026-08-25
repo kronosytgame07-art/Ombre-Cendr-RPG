@@ -14,7 +14,11 @@ function nextUid(){ return uidCounter++; }
 // correctement. Le moteur procédural reste pixel-perfect et animé en attendant
 // des exports source conformes (une silhouette complète par cellule).
 const USE_GENERATED_SHEETS=false;
-const USE_STATIC_DETAIL_SPRITES=true;
+// Les portraits détaillés restent utilisés par l'écran de vocation. Dans le
+// monde, les silhouettes procédurales articulées sont utilisées : chaque pas
+// anime réellement jambes, bras, tête, cape et arme sans découper une planche
+// IA dont les cellules se chevauchent.
+const USE_STATIC_DETAIL_SPRITES=false;
 
 export function createPlayer(classId, name){
   const cls = getClass(classId);
@@ -230,7 +234,7 @@ export function enemySpriteCanvas(def, pose, entity=null){
     drawSafeFrame(ctx,sheet,0,0);
     return cacheFrame(enemySpriteCache,key,canvas,64);
   }
-  if(sheet && entity){
+  if(USE_GENERATED_SHEETS&&sheet&&entity){
     const col=facingColumn(entity.facing);
     let row=0;
     if(entity.dead) row=5;
