@@ -269,9 +269,9 @@ function buildSkillBarSlots(){
 function updateHud(){
   const p = game.player;
   const s = p.stats;
-  $('orb-health-fill').style.height = Math.max(0,(p.hp/s.maxHp*100))+'%';
+  $('orb-health-fill').style.width = Math.max(0,(p.hp/s.maxHp*100))+'%';
   $('orb-health-text').textContent = `${Math.max(0,Math.round(p.hp))}/${s.maxHp}`;
-  $('orb-mana-fill').style.height = Math.max(0,(p.resource/s.maxResource*100))+'%';
+  $('orb-mana-fill').style.width = Math.max(0,(p.resource/s.maxResource*100))+'%';
   $('orb-mana-text').textContent = `${Math.max(0,Math.round(p.resource))}/${s.maxResource}`;
   $('hud-hero-name').textContent = p.name;
   $('hud-level').textContent = `Niv. ${p.level}`;
