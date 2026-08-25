@@ -101,23 +101,23 @@ function generateTownLayout(w, h, rng){
   for(let y=0;y<h;y++) for(let x=0;x<w;x++){
     if(x===0||y===0||x===w-1||y===h-1) grid[y][x]=WALL;
   }
-  const buildingCount = 6 + rng.int(0,3);
+  const buildingCount = 5 + rng.int(0,2);
   const buildings = [];
-  for(let i=0;i<buildingCount;i++){
-    // Maisons compactes : les anciennes empreintes jusqu'à 8×8 cases créaient
-    // des toits gigantesques qui occupaient presque tout l'écran au zoom jeu.
-    const bw = rng.int(4,6), bh = rng.int(4,5);
+  for(let i=0,attempts=0;i<buildingCount&&attempts<80;attempts++){
+    // Une maison doit pouvoir contenir visuellement un personnage : empreinte
+    // plus vaste, porte de 70 px et marge empêchant deux toits de se chevaucher.
+    const bw = rng.int(6,8), bh = rng.int(5,7);
     const bx = rng.int(3, w-bw-3), by = rng.int(3, h-bh-3);
+    if(buildings.some(other=>bx<other.x+other.w+3&&bx+bw+3>other.x&&by<other.y+other.h+3&&by+bh+3>other.y))continue;
     for(let y=by;y<by+bh;y++) for(let x=bx;x<bx+bw;x++){
       const border = (x===bx||x===bx+bw-1||y===by||y===by+bh-1);
       if(border) grid[y][x]=WALL;
     }
-    const doorSide = rng.int(0,3);
-    if(doorSide===0) grid[by+Math.floor(bh/2)][bx]=FLOOR;
-    else if(doorSide===1) grid[by+Math.floor(bh/2)][bx+bw-1]=FLOOR;
-    else if(doorSide===2) grid[by][bx+Math.floor(bw/2)]=FLOOR;
-    else grid[by+bh-1][bx+Math.floor(bw/2)]=FLOOR;
+    // La façade visible est au sud : l'ouverture logique correspond donc
+    // exactement à la porte dessinée, au lieu d'une entrée invisible ailleurs.
+    grid[by+bh-1][bx+Math.floor(bw/2)]=FLOOR;
     buildings.push({x:bx, y:by, w:bw, h:bh});
+    i++;
   }
   return {grid, buildings};
 }
