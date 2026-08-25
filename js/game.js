@@ -119,50 +119,15 @@ function drawFloorDecor(ctx, px, py, style, biome, time=0){
 // donjon repeints. Peint dans une passe séparée après toute la grille de sol
 // pour toujours recouvrir correctement les tuiles du dessus.
 function drawBuildingRoof(ctx, b){
-  const footprintW=b.w*TILE_SIZE;
-  const houseW=Math.min(208,Math.max(144,footprintW-18));
-  const wallH=64, roofH=76;
-  const cx=b.x*TILE_SIZE+footprintW/2;
-  const left=Math.round(cx-houseW/2), roofTop=Math.round(b.y*TILE_SIZE-roofH*0.34);
-  const wallTop=roofTop+roofH-10;
-  const seed=(b.x*31+b.y*17+b.w*7)&7;
-  ctx.save(); ctx.imageSmoothingEnabled=false;
-
-  // Ombre d'ancrage au sol.
-  ctx.globalAlpha=.38;ctx.fillStyle='#000';ctx.fillRect(left+10,wallTop+wallH-8,houseW-4,16);ctx.globalAlpha=1;
-  // Façade en pierre, irrégulière mais construite uniquement sur la grille pixel.
-  ctx.fillStyle='#19191a';ctx.fillRect(left+8,wallTop,houseW-16,wallH);
-  ctx.fillStyle='#303033';
-  for(let y=wallTop+4;y<wallTop+wallH-4;y+=9){
-    const shift=((y/9+seed)&1)*7;
-    for(let x=left+11-shift;x<left+houseW-12;x+=16) ctx.fillRect(x,y,12,6);
-  }
-  // Colombages et porte centrale.
-  ctx.fillStyle='#21120d';ctx.fillRect(left+14,wallTop,7,wallH);ctx.fillRect(left+houseW-22,wallTop,7,wallH);ctx.fillRect(left+8,wallTop+24,houseW-16,6);
-  const doorX=Math.round(cx-14);ctx.fillStyle='#120c09';ctx.fillRect(doorX,wallTop+27,28,37);ctx.fillStyle='#4a2818';ctx.fillRect(doorX+4,wallTop+31,20,33);ctx.fillStyle='#d6792c';ctx.fillRect(doorX+19,wallTop+48,3,3);
-  // Fenêtres éclairées avec croisillons.
-  for(const wx of [left+34,left+houseW-50]){
-    ctx.fillStyle='#100b09';ctx.fillRect(wx,wallTop+34,18,17);ctx.fillStyle='#bd5424';ctx.fillRect(wx+3,wallTop+37,12,11);ctx.fillStyle='#f0a13b';ctx.fillRect(wx+5,wallTop+39,8,7);ctx.fillStyle='#3a2015';ctx.fillRect(wx+8,wallTop+36,3,13);ctx.fillRect(wx+2,wallTop+43,14,3);
-  }
-
-  // Toiture en marches pixel, jamais en grand polygone lisse.
-  const half=Math.floor(houseW/2), step=6;
-  for(let y=0;y<roofH;y+=step){
-    const inset=Math.floor((roofH-y)/step)*step;
-    const rowLeft=left-inset/3, rowW=houseW+inset*2/3;
-    ctx.fillStyle=((y/step+seed)&1)?'#54241b':'#67291d';
-    ctx.fillRect(Math.round(rowLeft),roofTop+y,Math.round(rowW),step+1);
-    ctx.fillStyle='#2b1511';ctx.fillRect(Math.round(rowLeft),roofTop+y+step-2,Math.round(rowW),2);
-    // Tuiles individuelles décalées d'une rangée à l'autre.
-    ctx.fillStyle='rgba(15,8,7,.62)';
-    const tileShift=((y/step)&1)*7;
-    for(let tx=Math.round(rowLeft)+tileShift;tx<rowLeft+rowW;tx+=14) ctx.fillRect(tx,roofTop+y,2,step-1);
-  }
-  // Faîtage, pignons et mousse cendrée.
-  ctx.fillStyle='#301512';ctx.fillRect(Math.round(cx-4),roofTop-3,8,roofH+5);
-  ctx.fillStyle='#8a3a22';ctx.fillRect(Math.round(cx-2),roofTop-2,4,roofH+2);
-  ctx.fillStyle='#181714';
-  for(let i=0;i<8;i++) ctx.fillRect(left+12+((i*29+seed*11)%(houseW-30)),roofTop+20+((i*13)%42),5,3);
+  const img=getImageSync('assets/sprites/world/village_house_hd2d.png');
+  if(!img) return;
+  const footprintW=b.w*TILE_SIZE,cx=b.x*TILE_SIZE+footprintW/2;
+  const baseY=(b.y+b.h)*TILE_SIZE+4;
+  const width=Math.min(210,Math.max(168,footprintW-8));
+  const height=Math.round(width*(img.height/img.width));
+  ctx.save();ctx.imageSmoothingEnabled=false;
+  ctx.globalAlpha=.34;ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(cx,baseY-5,width*.41,12,0,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+  ctx.drawImage(img,Math.round(cx-width/2),Math.round(baseY-height),width,height);
   ctx.restore();
 }
 
@@ -642,7 +607,7 @@ export class Game{
     for(let y=y0;y<y1;y++){
       for(let x=x0;x<x1;x++){
         const walkable = isWalkable(this.map, x, y);
-        const variants = walkable ? this.tileCache.floor : this.tileCache.wall;
+        const variants = this.zone.kind==='town' ? this.tileCache.floor : (walkable ? this.tileCache.floor : this.tileCache.wall);
         const idx = tileVariantIndex(x,y) % variants.length;
         ctx.drawImage(variants[idx], x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE, TILE_SIZE);
         if(walkable){
