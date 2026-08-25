@@ -650,13 +650,16 @@ export class Game{
     const walk = p.moving ? Math.sin(this.time*9) : 0;
     const action = p.action ? {kind:p.action.kind, phase:Math.min(1,p.action.t/p.action.duration)} : null;
     const img = playerSpriteCanvas(p, {walk, action});
+    const renderW = img._hd2d ? 96 : w;
+    const renderH = img._hd2d ? 96 : h;
     ctx.save();
     ctx.translate(p.pos.x, p.pos.y);
-    if(p.facing.x < -0.1) ctx.scale(-1,1);
+    if(!img._hd2d && p.facing.x < -0.1) ctx.scale(-1,1);
     let alpha = 1;
     for(const b of p.buffs) if(b.effect && b.effect.invisible) alpha = 0.35;
     ctx.globalAlpha = alpha;
-    ctx.drawImage(img, -w/2, -h+12, w, h);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, -renderW/2, -renderH+14, renderW, renderH);
     ctx.restore();
     ctx.globalAlpha = 1;
     if(p.hp <= 0){ /* mort gérée par overlay UI */ }
