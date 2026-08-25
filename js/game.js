@@ -988,7 +988,7 @@ export class Game{
     ctx.restore();
     ctx.save();
     ctx.translate(px(npc.pos.x),px(npc.pos.y));
-    if(!img._hd2d && npc.facing.x<-.1) ctx.scale(-1,1);
+    if((!img._hd2d||img._staticDetailed)&&npc.facing.x<-.1) ctx.scale(-1,1);
     ctx.imageSmoothingEnabled=false;
     ctx.drawImage(img,-w/2,-h+14,w,h);
     ctx.restore();
@@ -1029,8 +1029,9 @@ export class Game{
     const renderW = w;
     const renderH = h;
     ctx.save();
-    ctx.translate(px(p.pos.x),px(p.pos.y));
-    if(!img._hd2d && p.facing.x < -0.1) ctx.scale(-1,1);
+    const moveBob=p.moving?px(Math.abs(Math.sin(this.time*9))*2):0;
+    ctx.translate(px(p.pos.x),px(p.pos.y-moveBob));
+    if((!img._hd2d||img._staticDetailed)&&p.facing.x < -0.1) ctx.scale(-1,1);
     let alpha = 1;
     for(const b of p.buffs) if(b.effect && b.effect.invisible) alpha = 0.35;
     ctx.globalAlpha = alpha;
@@ -1061,7 +1062,7 @@ export class Game{
     ctx.save();
     ctx.imageSmoothingEnabled=false;
     ctx.translate(px(e.pos.x),px(e.pos.y+bob));
-    if(!img._hd2d && e.facing.x < -0.1) ctx.scale(-1,1);
+    if((!img._hd2d||img._staticDetailed)&&e.facing.x < -0.1) ctx.scale(-1,1);
     let alpha = e.dead ? Math.max(0, e.deathTimer/0.6) : 1;
     ctx.globalAlpha = alpha;
     ctx.drawImage(img, -w/2, -h+12, w, h);
