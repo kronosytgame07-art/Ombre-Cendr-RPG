@@ -102,10 +102,10 @@ export function enemySpriteCanvas(def, pose){
 const npcSpriteCache = new Map();
 export function npcSpriteCanvas(npc){
   const atlas=getImageSync('assets/sprites/npcs/camp_npcs_8dir.png');
-  if(atlas && npc.sheetRow!=null){
+  if(atlas && npc.sheetIdle!=null){
     const col=facingColumn(npc.facing);
-    const animRow=npc.moving ? ((Math.floor(performance.now()/180)%2)?1:2) : 0;
-    const row=npc.sheetRow+animRow;
+    const step=Math.floor(performance.now()/180)%2;
+    const row=npc.moving ? npc.sheetWalk[step] : npc.sheetIdle;
     const key='npc:'+npc.id+':'+col+':'+row;
     if(npcSpriteCache.has(key)) return npcSpriteCache.get(key);
     const canvas=document.createElement('canvas');
