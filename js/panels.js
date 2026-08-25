@@ -6,6 +6,10 @@ import { WORLD_LORE, BESTIARY_INTRO } from './data/lore.js';
 import { CLASSES } from './data/classes.js';
 import { ZONES, getZone } from './data/zones.js';
 import { drawItemIcon } from './engine/sprites.js';
+import { generateItem } from './data/items.js';
+import { Rng } from './engine/rng.js';
+import { QUESTS } from './data/quests.js';
+import { acceptQuest, turnInQuest } from './systems/quests.js';
 
 const EQUIP_SLOTS = [
   {key:'casque', label:'Casque'}, {key:'amulette', label:'Amulette'},
@@ -268,6 +272,153 @@ function addCategory(listEl, label, items, intro){
 // ---------------------------------------------------------------------
 // CARTE DU MONDE
 // ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+// PNJ — BOUTIQUE (marchande / forgeron)
+// ---------------------------------------------------------------------
+const SELL_RARITY_MULT = {commun:1, magique:2, rare:4, epique:8, legendaire:16};
+function priceForItem(item){ return Math.max(8, Math.round((item.itemLevel||1) * 9 * (SELL_RARITY_MULT[item.rarity]||1))); }
+function sellValueForItem(item){ return Math.max(4, Math.round(priceForItem(item)*0.4)); }
+
+function generateShopStock(npc, playerLevel){
+  const rng = new Rng((Date.now() ^ (npc.id.length*7919)) >>> 0);
+  const lvl = Math.max(1, playerLevel);
+  const pool = npc.role==='forgeron'
+    ? ['epee','hache','dague','arc','baton','sceptre','casque','plastron','gants','bottes','ceinture','bouclier']
+    : ['casque','gants','bottes','ceinture','anneau','amulette'];
+  const n = npc.role==='forgeron' ? 6 : 4;
+  const items = [];
+  for(let i=0;i<n;i++){
+    const baseType = rng.pick(pool);
+    const roll = rng.next();
+    const rarity = roll<0.1 ? 'rare' : (roll<0.4 ? 'magique' : 'commun');
+    items.push(generateItem({baseType, itemLevel: Math.max(1, lvl+rng.int(-1,2)), rarity, rng}));
+  }
+  return items;
+}
+
+function shopCard(item, price, tooltip, onClick){
+  const card = document.createElement('div');
+  card.className = 'shop-card q'+rarityCls(item.rarity);
+  card.appendChild(iconCanvas(item));
+  const name = document.createElement('div'); name.className='sc-name'; name.textContent = item.name;
+  card.appendChild(name);
+  const priceEl = document.createElement('div'); priceEl.className='sc-price'; priceEl.textContent = `${price} or`;
+  card.appendChild(priceEl);
+  card.addEventListener('mousemove', e=>showTooltip(tooltip, item, e.clientX, e.clientY));
+  card.addEventListener('mouseleave', ()=>hideTooltip(tooltip));
+  card.addEventListener('click', onClick);
+  return card;
+}
+
+function potionCard(kind, price, label, player, onChange){
+  const card = document.createElement('div'); card.className='shop-card qcommon';
+  card.appendChild(drawItemIcon(kind==='vie'?'potion_vie':'potion_mana', '#7fd97f', '#7fd97f'));
+  const name = document.createElement('div'); name.className='sc-name'; name.textContent = label;
+  card.appendChild(name);
+  const priceEl = document.createElement('div'); priceEl.className='sc-price'; priceEl.textContent = `${price} or`;
+  card.appendChild(priceEl);
+  card.addEventListener('click', ()=>{
+    if(player.gold < price) return;
+    player.gold -= price;
+    player.potions[kind] = (player.potions[kind]||0)+1;
+    onChange();
+  });
+  return card;
+}
+
+export function renderShop(npc, player, onChange){
+  const body = document.getElementById('npc-body');
+  body.innerHTML = '';
+  const tooltip = initTooltip();
+
+  if(npc.role==='marchand'){
+    const potSection = document.createElement('div'); potSection.className='shop-section';
+    potSection.innerHTML = '<h4>Potions</h4>';
+    body.appendChild(potSection);
+    const potGrid = document.createElement('div'); potGrid.className='shop-grid';
+    potGrid.appendChild(potionCard('vie', 30, 'Fiole de Vie', player, onChange));
+    potGrid.appendChild(potionCard('mana', 28, 'Fiole de Ressource', player, onChange));
+    body.appendChild(potGrid);
+  }
+
+  if(!npc.stock) npc.stock = generateShopStock(npc, player.level);
+  const stockSection = document.createElement('div'); stockSection.className='shop-section';
+  stockSection.innerHTML = `<h4>${npc.role==='forgeron'?'Étal du forgeron':'Marchandises'}</h4>`;
+  body.appendChild(stockSection);
+  const grid = document.createElement('div'); grid.className='shop-grid';
+  for(const item of npc.stock){
+    const price = priceForItem(item);
+    grid.appendChild(shopCard(item, price, tooltip, ()=>{
+      if(player.gold < price) return;
+      const freeIdx = player.inventory.findIndex(x=>x===null);
+      if(freeIdx===-1) return;
+      player.gold -= price;
+      player.inventory[freeIdx] = item;
+      npc.stock = npc.stock.filter(x=>x!==item);
+      onChange();
+    }));
+  }
+  body.appendChild(grid);
+
+  const sellSection = document.createElement('div'); sellSection.className='shop-section'; sellSection.innerHTML='<h4>Vendre depuis votre sac</h4>';
+  body.appendChild(sellSection);
+  const sellGrid = document.createElement('div'); sellGrid.className='shop-grid';
+  let hasSellable = false;
+  player.inventory.forEach((item, i)=>{
+    if(!item) return;
+    hasSellable = true;
+    const value = sellValueForItem(item);
+    sellGrid.appendChild(shopCard(item, value, tooltip, ()=>{
+      player.gold += value;
+      player.inventory[i] = null;
+      onChange();
+    }));
+  });
+  if(!hasSellable){ const empty=document.createElement('div'); empty.className='shop-empty'; empty.textContent="Rien à vendre pour l'instant."; sellGrid.appendChild(empty); }
+  body.appendChild(sellGrid);
+}
+
+// ---------------------------------------------------------------------
+// PNJ — DONNEUR DE QUÊTES
+// ---------------------------------------------------------------------
+export function renderQuestGiver(npc, player, onChange, onRewardXp){
+  const body = document.getElementById('npc-body');
+  body.innerHTML = '';
+  const list = document.createElement('div'); list.className = 'quest-list';
+  for(const qid of npc.questIds||[]){
+    const def = QUESTS[qid];
+    if(!def) continue;
+    const state = player.quests[qid];
+    const row = document.createElement('div'); row.className = 'quest-row';
+    let statusHtml;
+    if(!state){
+      statusHtml = `<div class="q-desc">${def.desc}</div><div class="q-reward">Récompense : ${def.reward.gold} or, ${def.reward.xp} XP</div>`;
+    } else if(state.turnedIn){
+      statusHtml = `<div class="q-desc">${def.desc}</div><div class="q-done">Terminée.</div>`;
+    } else if(state.done){
+      statusHtml = `<div class="q-desc">${def.desc}</div><div class="q-ready">Prête à être rendue !</div>`;
+    } else {
+      statusHtml = `<div class="q-desc">${def.desc}</div><div class="q-progress">Progression : ${state.progress}/${def.count}</div>`;
+    }
+    row.innerHTML = `<h4>${def.name}</h4>${statusHtml}`;
+    if(!state){
+      const btn = document.createElement('button'); btn.className='menu-btn small'; btn.textContent='Accepter';
+      btn.addEventListener('click', ()=>{ acceptQuest(player, qid); onChange(); });
+      row.appendChild(btn);
+    } else if(state.done && !state.turnedIn){
+      const btn = document.createElement('button'); btn.className='menu-btn small'; btn.textContent='Rendre la quête';
+      btn.addEventListener('click', ()=>{
+        const xp = turnInQuest(player, qid);
+        if(xp!=null) onRewardXp(xp);
+        onChange();
+      });
+      row.appendChild(btn);
+    }
+    list.appendChild(row);
+  }
+  body.appendChild(list);
+}
+
 export function renderWorldMap(player, onTravel){
   const list = document.getElementById('worldmap-list');
   list.innerHTML = '';

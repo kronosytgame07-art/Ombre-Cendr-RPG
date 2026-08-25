@@ -450,6 +450,7 @@ export function makeTile(kind, variant=0){
     neige: ['#c9d2d8','#dfe6ea','#b3bec5'],
     caverne: ['#231f21','#2b262a','#1a1618'],
     bois: ['#4a3623','#5a422a','#3a2a1a'],
+    maison: ['#6b4a30','#7d5838','#583c26'],
     cobble: ['#413a34','#4c443d','#35302b'],
     tapis: ['#5a1f1f','#6b2a2a','#4a1616'],
     sable: ['#8a6d3a','#9c7d46','#78602f'],
@@ -494,6 +495,17 @@ export function makeTile(kind, variant=0){
   if(kind==='neige' && rnd()<0.7){
     ctx.fillStyle = 'rgba(255,255,255,0.5)';
     for(let i=0;i<3;i++) ctx.fillRect(rnd()*size, rnd()*size, 2, 2);
+  }
+  if(kind==='maison'){
+    // planches de bois horizontales + éclat de fenêtre occasionnel : les murs
+    // de la ville se lisent comme des façades, pas comme de la pierre de donjon.
+    ctx.strokeStyle = shade(pal[2],-8); ctx.lineWidth = 1; ctx.globalAlpha = 0.55;
+    for(let ly=6; ly<size; ly+=8){ ctx.beginPath(); ctx.moveTo(0,ly); ctx.lineTo(size,ly); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+    if(rnd()<0.3){
+      ctx.fillStyle = '#3a281a'; ctx.fillRect(size*0.32, size*0.28, size*0.36, size*0.3);
+      ctx.fillStyle = 'rgba(255,196,110,0.85)'; ctx.fillRect(size*0.38, size*0.34, size*0.24, size*0.18);
+    }
   }
   // léger assombrissement des bords pour masquer les coutures de répétition
   const vg = ctx.createRadialGradient(size/2,size/2,size*0.3,size/2,size/2,size*0.72);

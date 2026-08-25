@@ -101,8 +101,9 @@ function generateTownLayout(w, h, rng){
   for(let y=0;y<h;y++) for(let x=0;x<w;x++){
     if(x===0||y===0||x===w-1||y===h-1) grid[y][x]=WALL;
   }
-  const buildings = 6 + rng.int(0,3);
-  for(let i=0;i<buildings;i++){
+  const buildingCount = 6 + rng.int(0,3);
+  const buildings = [];
+  for(let i=0;i<buildingCount;i++){
     const bw = rng.int(4,8), bh = rng.int(4,8);
     const bx = rng.int(3, w-bw-3), by = rng.int(3, h-bh-3);
     for(let y=by;y<by+bh;y++) for(let x=bx;x<bx+bw;x++){
@@ -114,17 +115,19 @@ function generateTownLayout(w, h, rng){
     else if(doorSide===1) grid[by+Math.floor(bh/2)][bx+bw-1]=FLOOR;
     else if(doorSide===2) grid[by][bx+Math.floor(bw/2)]=FLOOR;
     else grid[by+bh-1][bx+Math.floor(bw/2)]=FLOOR;
+    buildings.push({x:bx, y:by, w:bw, h:bh});
   }
-  return grid;
+  return {grid, buildings};
 }
 
 export function generateZoneMap(zone, seed){
   const rng = new Rng(seed >>> 0);
   const w = zone.size.w, h = zone.size.h;
-  let grid;
+  let grid, buildings = [];
 
   if(zone.kind === 'town'){
-    grid = generateTownLayout(w, h, rng);
+    const town = generateTownLayout(w, h, rng);
+    grid = town.grid; buildings = town.buildings;
   } else {
     let attempts = 0;
     let region = [];
@@ -196,7 +199,7 @@ export function generateZoneMap(zone, seed){
     w, h, grid, spawn:{x:spawn[0], y:spawn[1]},
     portal: zone.kind==='town' ? null : {x:portal[0], y:portal[1]},
     bossSpawn: zone.kind==='town' ? null : {x:portal[0], y:portal[1]},
-    enemySpawns, chests, floorTiles,
+    enemySpawns, chests, floorTiles, buildings,
   };
 }
 
