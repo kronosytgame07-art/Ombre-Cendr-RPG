@@ -5,7 +5,7 @@ export function loadImage(path){
   if(cache.has(path)) return cache.get(path);
   const p = new Promise((resolve)=>{
     const img = new Image();
-    img.onload = ()=> resolve(img);
+    img.onload = ()=>{ img._assetPath=path; resolve(img); };
     img.onerror = ()=> resolve(null);
     img.src = path;
   });

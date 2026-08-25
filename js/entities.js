@@ -50,13 +50,14 @@ export function createPlayer(classId, name){
 // échantillonnés. Cela élimine les fragments de la frame voisine lors des
 // attaques et de la marche, même avec un zoom Canvas non entier.
 function drawSafeFrame(ctx, image, col, row, cell=96){
-  // Six pixels de gouttière : certaines planches contiennent encore des
-  // fragments de la cellule voisine jusqu'à 4 px après le découpage IA.
-  const inset=6;
+  // Les planches v2 ont déjà une gouttière transparente vérifiée par le
+  // calibrateur : on peut lire toute la cellule sans supprimer de pixels.
+  // Les anciennes feuilles conservent une marge défensive de 6 px.
+  const inset=image._assetPath?.includes('/v2/')||image._assetPath?.includes('_v2.png')?0:6;
   ctx.clearRect(0,0,cell,cell);
   ctx.drawImage(image,col*cell+inset,row*cell+inset,cell-inset*2,cell-inset*2,
     inset,inset,cell-inset*2,cell-inset*2);
-  repairSpritePinholes(ctx, cell, cell);
+  if(inset)repairSpritePinholes(ctx,cell,cell);
 }
 
 // Le détourage IA a parfois transformé des pixels très sombres du manteau en
@@ -89,6 +90,10 @@ function repairSpritePinholes(ctx, width, height){
 }
 
 const heroFrameCache = new Map();
+function cacheFrame(cache,key,value,limit){
+  if(cache.size>=limit)cache.delete(cache.keys().next().value);
+  cache.set(key,value);return value;
+}
 function facingColumn(facing){
   const x=facing?.x||0, y=facing?.y||1;
   return (Math.round(Math.atan2(-x,y)/(Math.PI/4))+8)%8;
@@ -116,8 +121,7 @@ export function playerSpriteCanvas(player, pose){
     const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
     drawSafeFrame(ctx,sheet,col,row);
     drawEquipmentLayer(ctx,player,col);
-    heroFrameCache.set(key,canvas);
-    return canvas;
+    return cacheFrame(heroFrameCache,key,canvas,192);
   }
   const weaponItem=player.equipment.arme;
   const weaponType=weaponItem ? weaponItem.weaponClass : 'none';
@@ -214,8 +218,7 @@ export function enemySpriteCanvas(def, pose, entity=null){
     const ctx=canvas.getContext('2d');
     ctx.imageSmoothingEnabled=false;
     drawSafeFrame(ctx,sheet,col,row);
-    enemySpriteCache.set(key,canvas);
-    return canvas;
+    return cacheFrame(enemySpriteCache,key,canvas,256);
   }
   if(def.sprite.kind==='humanoid'){
     return drawHumanoid({w:68,h:86,...spriteHumanoidOpts(def.sprite),pose});
@@ -239,8 +242,7 @@ export function npcSpriteCanvas(npc){
     const ctx=canvas.getContext('2d');
     ctx.imageSmoothingEnabled=false;
     drawSafeFrame(ctx,atlas,col,row);
-    npcSpriteCache.set(key,canvas);
-    return canvas;
+    return cacheFrame(npcSpriteCache,key,canvas,64);
   }
   const key='npc:fallback:'+npc.id;
   if(npcSpriteCache.has(key)) return npcSpriteCache.get(key);

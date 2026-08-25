@@ -77,6 +77,7 @@ export const ENEMY_TYPES = {
   voile_ombre: {
     id:'voile_ombre', name:"Voile-d'Ombre", family:'esprit',
     sprite:{kind:'creature', shape:'spectre', main:'#241a30', eye:'#8fe0ff'},
+    sheet:'assets/sprites/enemies/v2/voile_ombre_8dir_actions.png',
     behavior:'ranged', speed:1.0, aggroRange:280, atkRange:220, atkCooldown:1.8, projectileSpeed:5,
     base:{hp:20, dmg:[5,10], armor:0, xp:12},
     resist:{ombre:50, physique:20}, zones:['marais','temple','faille'],
@@ -85,6 +86,7 @@ export const ENEMY_TYPES = {
   squelette_guerrier: {
     id:'squelette_guerrier', name:'Squelette Guerrier', family:'mort-vivant',
     sprite:{kind:'humanoid', weapon:'epee', undead:true, cloth:'#6b6b64', accent:'#8a8a80', armor:'lourd'},
+    sheet:'assets/sprites/enemies/v2/squelette_guerrier_8dir_actions.png',
     behavior:'melee', speed:1.0, aggroRange:220, atkRange:34, atkCooldown:1.1,
     base:{hp:30, dmg:[5,9], armor:6, xp:11},
     resist:{ombre:20}, zones:['cimetiere'],
@@ -101,6 +103,7 @@ export const ENEMY_TYPES = {
   gardien_pierre: {
     id:'gardien_pierre', name:'Gardien de Pierre', family:'construct',
     sprite:{kind:'creature', shape:'golem', main:'#4a4a4d', eye:'#8fe0ff'},
+    sheet:'assets/sprites/enemies/v2/gardien_pierre_8dir_actions.png',
     behavior:'melee', speed:0.7, aggroRange:180, atkRange:40, atkCooldown:1.6,
     base:{hp:70, dmg:[10,18], armor:12, xp:22},
     resist:{physique:25}, zones:['grottes','volcan'],
@@ -109,6 +112,7 @@ export const ENEMY_TYPES = {
   troll_roc: {
     id:'troll_roc', name:'Troll de Roc', family:'bête',
     sprite:{kind:'creature', shape:'troll', main:'#7a6248', eye:'#ffcf5a'},
+    sheet:'assets/sprites/enemies/v2/troll_roc_8dir_actions.png',
     behavior:'melee', speed:0.9, aggroRange:200, atkRange:44, atkCooldown:1.4, regen:2,
     base:{hp:80, dmg:[11,19], armor:6, xp:24},
     resist:{physique:15}, zones:['grottes'],
@@ -117,6 +121,7 @@ export const ENEMY_TYPES = {
   geant_givre: {
     id:'geant_givre', name:'Géant de Givre', family:'bête',
     sprite:{kind:'creature', shape:'yeti', main:'#a9c9d8', eye:'#eaffff'},
+    sheet:'assets/sprites/enemies/v2/geant_givre_8dir_actions.png',
     behavior:'melee', speed:0.8, aggroRange:210, atkRange:46, atkCooldown:1.5, slowOnHit:0.3,
     base:{hp:110, dmg:[14,22], armor:8, xp:32},
     resist:{glace:60, feu:-20}, zones:['toundra'],
@@ -125,6 +130,7 @@ export const ENEMY_TYPES = {
   cultiste_nihilash: {
     id:'cultiste_nihilash', name:"Cultiste de l'Ombre", family:'humain',
     sprite:{kind:'humanoid', weapon:'sceptre', hood:true, cloak:true, cloth:'#241f2a', accent:'#5a2e6b'},
+    sheet:'assets/sprites/enemies/v2/cultiste_nihilash_8dir_actions.png',
     behavior:'ranged', speed:1.0, aggroRange:260, atkRange:220, atkCooldown:1.7, projectileSpeed:5,
     base:{hp:26, dmg:[6,11], armor:1, xp:14},
     resist:{ombre:20}, zones:['temple','volcan','faille'],
@@ -133,6 +139,7 @@ export const ENEMY_TYPES = {
   golem_cendre: {
     id:'golem_cendre', name:'Golem de Cendre', family:'construct',
     sprite:{kind:'creature', shape:'golem', main:'#5a2e1a', eye:'#ff8c2b'},
+    sheet:'assets/sprites/enemies/v2/golem_cendre_8dir_actions.png',
     behavior:'melee', speed:0.8, aggroRange:200, atkRange:42, atkCooldown:1.5,
     base:{hp:90, dmg:[12,20], armor:10, xp:28},
     resist:{feu:60, physique:10}, zones:['volcan'],
@@ -141,6 +148,7 @@ export const ENEMY_TYPES = {
   minotaure_lave: {
     id:'minotaure_lave', name:'Minotaure de Lave', family:'construct',
     sprite:{kind:'humanoid', weapon:'hache', armor:'lourd', cloth:'#4a1408', accent:'#ff6a2b'},
+    sheet:'assets/sprites/enemies/v2/minotaure_lave_8dir_actions.png',
     behavior:'melee', speed:1.0, aggroRange:220, atkRange:44, atkCooldown:1.3, burnOnHit:0.3,
     base:{hp:100, dmg:[16,24], armor:9, xp:34},
     resist:{feu:70, glace:-20}, zones:['volcan'],
