@@ -5,6 +5,7 @@ import { generateZoneMap, isWalkable } from './engine/mapgen.js';
 import { ZONES, getZone, nextZone, zoneLevel } from './data/zones.js';
 import { ENEMY_TYPES, BOSSES } from './data/enemies.js';
 import { createEnemy, createBoss, enemySpriteCanvas, bossSpriteCanvas, playerSpriteCanvas, npcSpriteCanvas, createPickup } from './entities.js';
+import { drawHumanoid } from './engine/sprites.js';
 import { updateEnemyAI, applyEnemyHitOnPlayer, castSkill, basicAttackSkillId, resolveSkillImpl, applyPlayerHitOnEnemy } from './systems/combat.js';
 import { spawnLootPickups, rollLootForEnemy } from './systems/loot.js';
 import { generateItem } from './data/items.js';
@@ -121,16 +122,53 @@ function drawFloorDecor(ctx, px, py, style, biome, time=0){
 // donjon repeints. Peint dans une passe séparée après toute la grille de sol
 // pour toujours recouvrir correctement les tuiles du dessus.
 function drawBuildingRoof(ctx, b){
-  const variants=['house','inn','forge','shop'];
-  const type=variants[Math.abs((b.x*31+b.y*17))%variants.length];
-  const img=getImageSync(`assets/sprites/world/village-v2/${type}.png`);
-  if(!img) return;
-  const footprintW=b.w*TILE_SIZE,cx=px(b.x*TILE_SIZE+footprintW/2);
-  const baseY=px((b.y+b.h)*TILE_SIZE+4);
-  const width=Math.min(210,Math.max(168,footprintW-8));
-  const height=Math.round(width*(img.height/img.width));
+  const seed=Math.abs(b.x*31+b.y*17),type=seed%4;
+  const cx=px((b.x+b.w/2)*TILE_SIZE),baseY=px((b.y+b.h)*TILE_SIZE+4);
+  const width=px(Math.max(232,b.w*TILE_SIZE+32));
+  const wallH=96+(type===1?16:0),roofH=78;
+  const left=px(cx-width/2),wallTop=px(baseY-wallH),roofTop=px(wallTop-roofH+18);
+  const doorW=48,doorH=70,doorX=px(cx-doorW/2),doorY=px(baseY-doorH);
   ctx.save();ctx.imageSmoothingEnabled=false;
-  ctx.drawImage(img,Math.round(cx-width/2),Math.round(baseY-height),width,height);
+  // Ombre de contact courte : elle fixe la maison au terrain sans donner
+  // l'impression qu'elle flotte plusieurs pixels au-dessus du sol.
+  ctx.globalAlpha=.42;ctx.fillStyle='#050404';
+  ctx.fillRect(left+10,baseY-7,width-20,8);ctx.globalAlpha=1;
+  // Fondation et murs en blocs irréguliers, sans image externe ni débordement.
+  ctx.fillStyle='#171413';ctx.fillRect(left,wallTop,width,wallH);
+  ctx.fillStyle=type===2?'#51433a':'#5a4a3e';ctx.fillRect(left+5,wallTop+5,width-10,wallH-10);
+  for(let y=wallTop+8,row=0;y<baseY-6;y+=14,row++)for(let x=left+7-(row%2)*9;x<left+width-7;x+=28){
+    ctx.fillStyle=(x/7+row+seed)%3<1?'#665447':'#4b3e36';
+    ctx.fillRect(px(x),y,25,11);ctx.fillStyle='#2a211e';ctx.fillRect(px(x),y+10,25,2);
+  }
+  ctx.fillStyle='#28201b';ctx.fillRect(left,baseY-9,width,9);
+  ctx.fillStyle='#75604c';ctx.fillRect(left+5,baseY-9,width-10,3);
+  // Porte à l'échelle d'un humanoïde de 86 px, encadrement massif et seuil.
+  ctx.fillStyle='#211713';ctx.fillRect(doorX-6,doorY-7,doorW+12,doorH+7);
+  ctx.fillStyle='#684329';ctx.fillRect(doorX,doorY,doorW,doorH);
+  for(let x=doorX+8;x<doorX+doorW;x+=10){ctx.fillStyle='#342117';ctx.fillRect(x,doorY,3,doorH);}
+  ctx.fillStyle='#ad7b3d';ctx.fillRect(doorX+doorW-10,doorY+35,4,4);
+  ctx.fillStyle='#8a735e';ctx.fillRect(doorX-9,doorY-10,doorW+18,7);
+  ctx.fillStyle='#191311';ctx.fillRect(doorX-12,baseY-3,doorW+24,5);
+  // Fenêtres profondément enchâssées avec lumière chaude.
+  for(const wx of [left+38,left+width-70]){
+    ctx.fillStyle='#211816';ctx.fillRect(wx-5,wallTop+31,38,45);
+    ctx.fillStyle='#d46a28';ctx.fillRect(wx,wallTop+36,28,34);
+    ctx.fillStyle='#ffbb47';ctx.fillRect(wx+4,wallTop+40,20,26);
+    ctx.fillStyle='#3a2720';ctx.fillRect(wx+13,wallTop+36,4,34);ctx.fillRect(wx,wallTop+51,28,4);
+  }
+  // Grand toit à pignon : tuiles entièrement dessinées dans ses limites.
+  ctx.fillStyle='#160f0e';
+  ctx.beginPath();ctx.moveTo(left-14,wallTop+8);ctx.lineTo(cx,roofTop-8);ctx.lineTo(left+width+14,wallTop+8);ctx.closePath();ctx.fill();
+  ctx.fillStyle=type===1?'#67291e':'#3c2930';
+  ctx.beginPath();ctx.moveTo(left-8,wallTop+3);ctx.lineTo(cx,roofTop);ctx.lineTo(left+width+8,wallTop+3);ctx.closePath();ctx.fill();
+  for(let row=0;row<7;row++){
+    const yy=roofTop+12+row*10,half=Math.round((yy-roofTop)/(wallTop+3-roofTop)*(width/2));
+    for(let x=cx-half;x<cx+half;x+=20){ctx.fillStyle=(row+(x/20|0))%2?'#51333a':'#30242b';ctx.fillRect(px(x),yy,18,8);}
+  }
+  ctx.fillStyle='#8b5135';ctx.fillRect(cx-5,roofTop-5,10,roofH-10);
+  // Cheminée et panache discret, attachés au toit.
+  const chimneyX=left+width-58;ctx.fillStyle='#282326';ctx.fillRect(chimneyX,roofTop+24,22,48);
+  ctx.fillStyle='#6d625b';ctx.fillRect(chimneyX-3,roofTop+21,28,7);
   ctx.restore();
 }
 
@@ -140,13 +178,13 @@ function rampartTile(side,variant){
   if(rampartCache.has(key))return rampartCache.get(key);
   const canvas=document.createElement('canvas');canvas.width=TILE_SIZE;canvas.height=TILE_SIZE;
   const c=canvas.getContext('2d');c.imageSmoothingEnabled=false;
-  c.fillStyle='#171719';c.fillRect(0,0,TILE_SIZE,TILE_SIZE);
-  c.fillStyle='#3c3b3d';c.fillRect(2,2,TILE_SIZE-4,TILE_SIZE-4);
-  const rows=[2,12,22,32];
+  c.fillStyle='#121214';c.fillRect(0,0,TILE_SIZE,TILE_SIZE);
+  c.fillStyle='#48464a';c.fillRect(2,2,TILE_SIZE-4,TILE_SIZE-4);
+  const rows=[3,12,21,30];
   for(let r=0;r<rows.length;r++){
     const y=rows[r],offset=((r+variant)&1)?-7:0;
     for(let x=offset;x<TILE_SIZE;x+=15){
-      c.fillStyle=((x/15+r+variant)&1)?'#504d4c':'#464546';
+      c.fillStyle=((x/15+r+variant)&1)?'#625e5b':'#504e51';
       c.fillRect(x+1,y+1,13,8);
       c.fillStyle='#2b292b';c.fillRect(x+1,y+8,13,2);
       c.fillStyle='rgba(255,255,255,.10)';c.fillRect(x+2,y+2,10,1);
@@ -158,7 +196,7 @@ function rampartTile(side,variant){
   else if(side==='left')c.fillRect(TILE_SIZE-4,0,4,TILE_SIZE);
   else c.fillRect(0,0,4,TILE_SIZE);
   // Créneaux intégrés dans la tuile : aucun raccord d'image ni rotation.
-  c.fillStyle='#5b5754';
+  c.fillStyle='#77716c';
   if(side==='top'||side==='bottom')for(let x=2;x<TILE_SIZE;x+=14)c.fillRect(x,side==='top'?1:31,9,8);
   else for(let y=2;y<TILE_SIZE;y+=14)c.fillRect(side==='left'?1:31,y,8,9);
   rampartCache.set(key,canvas);return canvas;
@@ -169,19 +207,37 @@ function drawGate(ctx,map,side,view){
   if(!exit)return;
   const center=exit.x*TILE_SIZE+TILE_SIZE/2;
   const y=side==='top'?0:(map.h-1)*TILE_SIZE;
-  const bounds={left:center-TILE_SIZE*3,top:y-TILE_SIZE,right:center+TILE_SIZE*3,bottom:y+TILE_SIZE*2};
+  const inward=side==='top'?1:-1,gateY=px(y+inward*TILE_SIZE*.45);
+  const bounds={left:center-TILE_SIZE*4,top:y-TILE_SIZE*2,right:center+TILE_SIZE*4,bottom:y+TILE_SIZE*2};
   if(!rectIntersects(bounds,view))return;
   ctx.save();ctx.imageSmoothingEnabled=false;
-  // La route de la tilemap reste visible et traverse réellement l'enceinte.
-  // Deux piliers compacts terminent proprement le mur sans dalle noire.
-  for(const dir of [-1,1]){
-    const towerX=px(center+dir*TILE_SIZE*2.5-TILE_SIZE/2);
-    ctx.drawImage(rampartTile(side,Math.abs(dir)),towerX,y,TILE_SIZE,TILE_SIZE);
-    ctx.fillStyle='#1b1715';ctx.fillRect(towerX+7,y+7,26,26);
-    ctx.fillStyle='#5d5854';ctx.fillRect(towerX+10,y+10,20,20);
-    ctx.fillStyle='#ff7628';ctx.fillRect(towerX+17,y+13,6,12);
-    ctx.fillStyle='#ffd05b';ctx.fillRect(towerX+19,y+15,3,7);
+  // Pont de bois posé sur la chaussée : l'ouverture reste clairement lisible
+  // et praticable, avec des chaînes et une herse relevée.
+  ctx.fillStyle='#251a13';ctx.fillRect(center-TILE_SIZE*2,gateY-TILE_SIZE*.65,TILE_SIZE*4,TILE_SIZE*1.3);
+  for(let i=-2;i<2;i++){
+    const bx=px(center+i*TILE_SIZE);ctx.fillStyle=i&1?'#765035':'#68462f';
+    ctx.fillRect(bx+2,gateY-TILE_SIZE*.6,TILE_SIZE-4,TILE_SIZE*1.2);
+    ctx.fillStyle='#2b1d17';ctx.fillRect(bx+2,gateY-2,TILE_SIZE-4,4);
   }
+  // Deux tours épaisses, raccordées bloc par bloc au rempart.
+  for(const dir of [-1,1]){
+    const towerX=px(center+dir*TILE_SIZE*2.65-TILE_SIZE*.75),towerY=px(gateY-TILE_SIZE);
+    ctx.fillStyle='#171719';ctx.fillRect(towerX,towerY,TILE_SIZE*1.5,TILE_SIZE*2);
+    for(let row=0;row<2;row++)for(let col=0;col<2;col++)ctx.drawImage(rampartTile(side,Math.abs(dir)+row+col),towerX+col*30,towerY+row*TILE_SIZE,30,TILE_SIZE);
+    ctx.fillStyle='#8a837c';for(let i=0;i<3;i++)ctx.fillRect(towerX+i*20,towerY-8,13,12);
+    ctx.fillStyle='#20191a';ctx.fillRect(towerX+17,towerY+37,26,39);
+    ctx.fillStyle='#ff7628';ctx.fillRect(towerX+27,towerY+48,6,15);ctx.fillStyle='#ffd05b';ctx.fillRect(towerX+29,towerY+50,3,8);
+  }
+  // Linteau, herse métallique relevée et pointes visibles.
+  ctx.fillStyle='#262327';ctx.fillRect(center-TILE_SIZE*2,gateY-TILE_SIZE*1.15,TILE_SIZE*4,13);
+  ctx.fillStyle='#716a63';ctx.fillRect(center-TILE_SIZE*2,gateY-TILE_SIZE*1.15,TILE_SIZE*4,5);
+  for(let x=center-TILE_SIZE*1.7;x<center+TILE_SIZE*1.8;x+=14){
+    ctx.fillStyle='#27282b';ctx.fillRect(px(x),gateY-TILE_SIZE*1.1,5,31);
+    ctx.beginPath();ctx.moveTo(px(x),gateY-TILE_SIZE*.32);ctx.lineTo(px(x)+5,gateY-TILE_SIZE*.32);ctx.lineTo(px(x)+2,gateY-TILE_SIZE*.18);ctx.closePath();ctx.fill();
+  }
+  ctx.strokeStyle='#8a7350';ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(center-TILE_SIZE*1.9,gateY-TILE_SIZE*1.05);ctx.lineTo(center-TILE_SIZE*1.45,gateY-TILE_SIZE*.35);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(center+TILE_SIZE*1.9,gateY-TILE_SIZE*1.05);ctx.lineTo(center+TILE_SIZE*1.45,gateY-TILE_SIZE*.35);ctx.stroke();
   ctx.restore();
 }
 
@@ -223,17 +279,13 @@ function wallGuardDrawables(map,time,view){
 function visiblePoint(pos,view,pad=0){return pos.x>=view.left-pad&&pos.x<=view.right+pad&&pos.y>=view.top-pad&&pos.y<=view.bottom+pad;}
 
 function drawWallGuard(ctx,guard){
-  const x=px(guard.pos.x),y=px(guard.pos.y),step=guard.step?1:-1;
+  const x=px(guard.pos.x),y=px(guard.pos.y);
+  const walk=guard.step?1:-1;
+  const sprite=drawHumanoid({w:52,h:68,skin:'#b99a79',cloth:'#3e4149',accent:'#87351f',trim:'#9b958d',
+    weapon:'epee',armor:'lourd',helmet:true,shield:true,boots:true,gloves:true,belt:true,pose:{walk}});
   ctx.save();ctx.imageSmoothingEnabled=false;ctx.translate(x,y);
   if(guard.facing.x<0)ctx.scale(-1,1);
-  ctx.globalAlpha=.35;ctx.fillStyle='#000';ctx.fillRect(-8,-2,16,4);ctx.globalAlpha=1;
-  ctx.fillStyle='#171719';ctx.fillRect(-5,-18+step,4,15);ctx.fillRect(2,-18-step,4,15);
-  ctx.fillStyle='#555963';ctx.fillRect(-8,-37,16,21);
-  ctx.fillStyle='#9a4a31';ctx.fillRect(-8,-31,16,4);
-  ctx.fillStyle='#777b83';ctx.fillRect(-6,-48,12,12);
-  ctx.fillStyle='#202126';ctx.fillRect(-7,-45,14,4);
-  ctx.fillStyle='#8d9299';ctx.fillRect(8,-39,2,30);ctx.fillStyle='#393b40';ctx.fillRect(6,-10,7,3);
-  ctx.restore();
+  ctx.drawImage(sprite,-31,-74,62,74);ctx.restore();
 }
 
 export class Game{
