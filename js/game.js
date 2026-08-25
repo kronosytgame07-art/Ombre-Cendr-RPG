@@ -1,4 +1,4 @@
-import { TILE_SIZE } from './engine/config.js';
+import { TILE_SIZE, ACTOR_RENDER_SIZE } from './engine/config.js';
 import { Input } from './engine/input.js';
 import { makeTile } from './engine/sprites.js';
 import { generateZoneMap, isWalkable } from './engine/mapgen.js';
@@ -17,6 +17,7 @@ import { getImageSync } from './engine/assets.js';
 const PLAYER_RADIUS = 16;
 const PORTAL_TRIGGER_DIST = 70;
 const px=value=>Math.round(value);
+const rectIntersects=(a,b)=>a.right>=b.left&&a.left<=b.right&&a.bottom>=b.top&&a.top<=b.bottom;
 
 // Hash entier déterministe par case : donne à chaque tuile un variant de
 // texture stable (pas de scintillement d'une frame à l'autre) et permet de
@@ -194,12 +195,21 @@ export class Game{
     this.bindMobileControls();
     this.resize();
     window.addEventListener('resize', ()=>this.resize());
+    this.resizeObserver = new ResizeObserver(()=>this.resize());
+    this.resizeObserver.observe(this.canvas.parentElement);
   }
 
   resize(){
     const rect = this.canvas.parentElement.getBoundingClientRect();
-    this.canvas.width = Math.floor(rect.width);
-    this.canvas.height = Math.floor(rect.height);
+    // Le buffer et la taille CSS doivent être strictement identiques. Utiliser
+    // devicePixelRatio ici créerait un second facteur d'échelle et des
+    // sous-pixels avec le zoom pixel-art du monde.
+    const width = Math.max(1, Math.round(rect.width));
+    const height = Math.max(1, Math.round(rect.height));
+    if(this.canvas.width!==width) this.canvas.width=width;
+    if(this.canvas.height!==height) this.canvas.height=height;
+    this.canvas.style.width=`${width}px`;
+    this.canvas.style.height=`${height}px`;
     this.ctx.imageSmoothingEnabled = false;
   }
 
@@ -680,8 +690,10 @@ export class Game{
     const y0 = Math.max(0, Math.floor(this.camera.y/TILE_SIZE)-1);
     const x1 = Math.min(this.map.w, Math.ceil((this.camera.x+cvw/zoom)/TILE_SIZE)+1);
     const y1 = Math.min(this.map.h, Math.ceil((this.camera.y+cvh/zoom)/TILE_SIZE)+1);
-    const view={left:this.camera.x-140,top:this.camera.y-180,right:this.camera.x+cvw/zoom+140,bottom:this.camera.y+cvh/zoom+140};
+    const view={left:px(this.camera.x-160),top:px(this.camera.y-190),
+      right:px(this.camera.x+cvw/zoom+160),bottom:px(this.camera.y+cvh/zoom+160)};
     const visible=pos=>pos.x>=view.left&&pos.x<=view.right&&pos.y>=view.top&&pos.y<=view.bottom;
+    const groundDecorDrawables=[];
     for(let y=y0;y<y1;y++){
       for(let x=x0;x<x1;x++){
         const walkable = isWalkable(this.map, x, y);
@@ -690,27 +702,37 @@ export class Game{
         const variants = onTownPath ? this.tileCache.accent :
           (this.zone.kind==='town' ? this.tileCache.floor : (walkable ? this.tileCache.floor : this.tileCache.wall));
         const idx = tileVariantIndex(x,y) % variants.length;
-        ctx.drawImage(variants[idx], x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        const tileX=x*TILE_SIZE, tileY=y*TILE_SIZE;
+        ctx.drawImage(variants[idx],tileX,tileY,TILE_SIZE,TILE_SIZE);
         if(walkable&&this.zone.kind!=='town'){
           const decor = decorAt(x,y,this.zone.floorTile);
-          if(decor!=null) drawFloorDecor(ctx, x*TILE_SIZE, y*TILE_SIZE, decor, this.zone.floorTile, this.time);
+          if(decor!=null){
+            // Les arbres ont une vraie base au sol et participent au Y-sort.
+            // Les petits détails plats restent dans la passe terrain.
+            if(this.zone.floorTile==='foret_sol') groundDecorDrawables.push({
+              isGroundDecor:true,style:decor,tileX,tileY,
+              pos:{x:tileX+TILE_SIZE/2,y:tileY+px(TILE_SIZE*0.7)}
+            });
+            else drawFloorDecor(ctx,tileX,tileY,decor,this.zone.floorTile,this.time);
+          }
         }
       }
     }
 
     if(this.zone.kind==='town')drawFortifiedPerimeter(ctx,this.map,view);
     if(this.map.portal){
-      const px=(this.map.portal.x+0.5)*TILE_SIZE, py=(this.map.portal.y+0.5)*TILE_SIZE;
+      const portalX=px((this.map.portal.x+0.5)*TILE_SIZE);
+      const portalY=px((this.map.portal.y+0.5)*TILE_SIZE);
       const props=getImageSync('assets/sprites/world/world_props_atlas.png');
       if(props){
         const frame=this.bossSpawnedThisVisit ? 0 : Math.floor(this.time*6)%4;
         ctx.imageSmoothingEnabled=false;
-        ctx.drawImage(props,frame*128+3,131,122,122,px-52,py-88,104,104);
+        ctx.drawImage(props,frame*128+3,131,122,122,portalX-52,portalY-88,104,104);
       }else{
         const pulse=10+Math.sin(this.time*3)*4;
         ctx.strokeStyle=this.bossSpawnedThisVisit?'#555':(this.zone.isFinal?'#8a1fff':'#ff8c2b');
         ctx.lineWidth=3;
-        ctx.beginPath(); ctx.arc(px,py,20+pulse,0,Math.PI*2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(portalX,portalY,px(20+pulse),0,Math.PI*2); ctx.stroke();
       }
     }
 
@@ -727,7 +749,7 @@ export class Game{
         const elapsed=Math.max(0,(performance.now()-p.bornAt)/1000);
         const frame=Math.min(3,Math.floor(elapsed/0.18));
         ctx.imageSmoothingEnabled=false;
-        ctx.drawImage(props,frame*128+3,3,122,122,p.pos.x-34,p.pos.y-48,68,68);
+        ctx.drawImage(props,frame*128+3,3,122,122,px(p.pos.x)-34,px(p.pos.y)-48,68,68);
       }else{
         ctx.fillStyle=p.kind==='gold'?'#d8b45a':p.kind==='potion'?'#7fd97f':'#e8dcc8';
         ctx.beginPath(); ctx.arc(p.pos.x,p.pos.y,6,0,Math.PI*2); ctx.fill();
@@ -736,20 +758,32 @@ export class Game{
 
     const totalCandidates=(this.map.campProps||[]).length+(this.map.buildings||[]).length+
       this.enemies.length+this.allies.length+this.npcs.length+1;
+    let drawOrder=0;
     const campDrawables = (this.map.campProps||[]).map(p=>({
-      ...p, isCampProp:true, pos:{x:(p.x+0.5)*TILE_SIZE,y:(p.y+0.82)*TILE_SIZE}
+      ...p,isCampProp:true,pos:{x:px((p.x+0.5)*TILE_SIZE),y:px((p.y+0.82)*TILE_SIZE)},
+      renderOrder:drawOrder++
     })).filter(ent=>visible(ent.pos));
     const buildingDrawables=(this.map.buildings||[]).map(b=>({isBuilding:true,building:b,
-      pos:{x:(b.x+b.w/2)*TILE_SIZE,y:(b.y+b.h)*TILE_SIZE+4}})).filter(ent=>visible(ent.pos));
-    const drawList = [...buildingDrawables,...campDrawables,...this.enemies.filter(e=>visible(e.pos)),
-      ...this.allies.filter(e=>visible(e.pos)),...this.npcs.filter(n=>visible(n.pos)).map(n=>({...n,isNpc:true})),
-      {isPlayer:true,pos:this.player.pos,facing:this.player.facing}];
+      pos:{x:px((b.x+b.w/2)*TILE_SIZE),y:(b.y+b.h)*TILE_SIZE+4},renderOrder:drawOrder++,
+      bounds:{left:b.x*TILE_SIZE,top:(b.y-4)*TILE_SIZE,right:(b.x+b.w)*TILE_SIZE,bottom:(b.y+b.h)*TILE_SIZE+4}
+    })).filter(ent=>rectIntersects(ent.bounds,view));
+    const dynamic=(list,extra={})=>list.filter(e=>visible(e.pos)).map(e=>({...e,...extra,renderOrder:drawOrder++}));
+    for(const decor of groundDecorDrawables) decor.renderOrder=drawOrder++;
+    const drawList = [...buildingDrawables,...groundDecorDrawables,...campDrawables,...dynamic(this.enemies),
+      ...dynamic(this.allies),...dynamic(this.npcs,{isNpc:true}),
+      {isPlayer:true,pos:this.player.pos,facing:this.player.facing,renderOrder:drawOrder++}];
     // Y-sorting par l'ancre des pieds (anchorX=.5, anchorY=1). Le toit est
     // attaché à la base du bâtiment : joueur au nord = derrière, au sud = devant.
-    drawList.sort((a,b)=>(a.pos.y-b.pos.y)||((a.isBuilding?0:1)-(b.isBuilding?0:1)));
+    drawList.sort((a,b)=>{
+      const byFeet=px(a.pos.y)-px(b.pos.y);
+      if(byFeet) return byFeet;
+      const byLayer=(a.isBuilding?0:1)-(b.isBuilding?0:1);
+      return byLayer||a.renderOrder-b.renderOrder;
+    });
     for(const ent of drawList){
       if(ent.isPlayer) this.drawPlayer(ctx);
       else if(ent.isBuilding) drawBuildingRoof(ctx,ent.building);
+      else if(ent.isGroundDecor) drawFloorDecor(ctx,ent.tileX,ent.tileY,ent.style,this.zone.floorTile,this.time);
       else if(ent.isCampProp) this.drawCampProp(ctx, ent);
       else if(ent.isNpc) this.drawNpc(ctx, ent);
       else if(ent.kind==='squelette' || ent.kind==='loup') this.drawAlly(ctx, ent);
@@ -860,7 +894,7 @@ export class Game{
 
   drawNpc(ctx, npc){
     const img=npcSpriteCanvas(npc);
-    const w=img._hd2d?96:68, h=img._hd2d?96:86;
+    const {width:w,height:h}=ACTOR_RENDER_SIZE.humanoid;
     ctx.save();
     ctx.globalAlpha=0.34; ctx.fillStyle='#000';
     ctx.beginPath(); ctx.ellipse(npc.pos.x,npc.pos.y+2,18,6,0,0,Math.PI*2); ctx.fill();
@@ -885,7 +919,7 @@ export class Game{
     }
     if(marker){
       ctx.save();
-      ctx.translate(npc.pos.x, npc.pos.y-h+4);
+      ctx.translate(px(npc.pos.x),px(npc.pos.y-h+4));
       ctx.font = 'bold 22px sans-serif'; ctx.textAlign = 'center';
       const bob = Math.sin(this.time*3)*3;
       ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillText(marker, 1, bob+1);
@@ -896,7 +930,7 @@ export class Game{
 
   drawPlayer(ctx){
     const p = this.player;
-    const w=68,h=86;
+    const {width:w,height:h}=ACTOR_RENDER_SIZE.humanoid;
     const walk = p.moving ? Math.sin(this.time*9) : 0;
     const action = p.action ? {kind:p.action.kind, phase:Math.min(1,p.action.t/p.action.duration)} : null;
     const img = playerSpriteCanvas(p, {walk, action});
@@ -905,8 +939,8 @@ export class Game{
     ctx.fillStyle='#000';
     ctx.beginPath(); ctx.ellipse(p.pos.x,p.pos.y+2,22,8,0,0,Math.PI*2); ctx.fill();
     ctx.restore();
-    const renderW = img._hd2d ? 96 : (img._modular?img.width:w);
-    const renderH = img._hd2d ? 96 : (img._modular?img.height:h);
+    const renderW = w;
+    const renderH = h;
     ctx.save();
     ctx.translate(px(p.pos.x),px(p.pos.y));
     if(!img._hd2d && p.facing.x < -0.1) ctx.scale(-1,1);
@@ -926,18 +960,19 @@ export class Game{
     const isAnimated=!e.isBoss&&!!def.sheet;
     let img, w, h, bob=0;
     if(e.isBoss){
-      img = bossSpriteCanvas(e.defId); w=168; h=168;
-      bob = Math.sin(this.time*3 + e.uid)*4;
+      img = bossSpriteCanvas(e.defId); ({width:w,height:h}=ACTOR_RENDER_SIZE.boss);
+      bob = px(Math.sin(this.time*3 + e.uid)*4);
     } else if(isHumanoid||isAnimated){
       const walk = e.moving ? Math.sin(this.time*8+e.uid) : 0;
       const action = e.action ? {kind:e.action.kind, phase:Math.min(1,e.action.t/e.action.duration)} : null;
       img=enemySpriteCanvas(def,{walk,action},e);
-      w=img._hd2d?96:68; h=img._hd2d?96:86;
+      ({width:w,height:h}=ACTOR_RENDER_SIZE.humanoid);
     } else {
-      img = enemySpriteCanvas(def); w=76; h=64;
-      bob = Math.sin(this.time*6 + e.uid) * (e.moving?4:1.8);
+      img = enemySpriteCanvas(def); ({width:w,height:h}=ACTOR_RENDER_SIZE.creature);
+      bob = px(Math.sin(this.time*6 + e.uid) * (e.moving?4:1.8));
     }
     ctx.save();
+    ctx.imageSmoothingEnabled=false;
     ctx.translate(px(e.pos.x),px(e.pos.y+bob));
     if(!img._hd2d && e.facing.x < -0.1) ctx.scale(-1,1);
     let alpha = e.dead ? Math.max(0, e.deathTimer/0.6) : 1;
