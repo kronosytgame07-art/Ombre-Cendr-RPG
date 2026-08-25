@@ -678,6 +678,10 @@ export class Game{
     const img=npcSpriteCanvas(npc);
     const w=img._hd2d?96:68, h=img._hd2d?96:86;
     ctx.save();
+    ctx.globalAlpha=0.34; ctx.fillStyle='#000';
+    ctx.beginPath(); ctx.ellipse(npc.pos.x,npc.pos.y+2,18,6,0,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+    ctx.save();
     ctx.translate(npc.pos.x,npc.pos.y);
     if(!img._hd2d && npc.facing.x<-.1) ctx.scale(-1,1);
     ctx.imageSmoothingEnabled=false;
@@ -712,6 +716,11 @@ export class Game{
     const walk = p.moving ? Math.sin(this.time*9) : 0;
     const action = p.action ? {kind:p.action.kind, phase:Math.min(1,p.action.t/p.action.duration)} : null;
     const img = playerSpriteCanvas(p, {walk, action});
+    ctx.save();
+    ctx.globalAlpha=0.42;
+    ctx.fillStyle='#000';
+    ctx.beginPath(); ctx.ellipse(p.pos.x,p.pos.y+2,22,8,0,0,Math.PI*2); ctx.fill();
+    ctx.restore();
     const renderW = img._hd2d ? 96 : w;
     const renderH = img._hd2d ? 96 : h;
     ctx.save();
