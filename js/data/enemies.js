@@ -23,6 +23,7 @@ export const ENEMY_TYPES = {
   araignee_calcinee: {
     id:'araignee_calcinee', name:'Araignée Calcinée', family:'bête',
     sprite:{kind:'creature', shape:'araignee', main:'#3a2418', eye:'#ffcf5a'},
+    sheet:'assets/sprites/enemies/araignee_calcinee_8dir.png',
     behavior:'melee', speed:1.1, aggroRange:200, atkRange:28, atkCooldown:1.1,
     base:{hp:20, dmg:[3,7], armor:1, xp:7, poisonOnHit:0.25},
     resist:{ombre:15}, zones:['foret','desert'],
