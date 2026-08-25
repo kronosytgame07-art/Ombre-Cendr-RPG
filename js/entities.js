@@ -100,18 +100,33 @@ export function enemySpriteCanvas(def, pose){
   return canvas;
 }
 const npcSpriteCache = new Map();
-// PNJ statiques (marchands, forgeron, donneurs de quêtes) : silhouette figée
-// (pas de pose de combat), mise en cache une fois pour toutes par id.
 export function npcSpriteCanvas(npc){
-  if(npcSpriteCache.has(npc.id)) return npcSpriteCache.get(npc.id);
-  const s = npc.sprite;
-  const canvas = drawHumanoid({
-    w:68, h:86, skin:'#c9a880', cloth:s.cloth, accent:s.accent, trim:s.trim||'#8a8a80',
-    hair:s.hair||'#2b1c14', weapon:s.weapon||'none', hood:!!s.hood, cloak:!!s.cloak, armor:s.armor||'leger',
+  const atlas=getImageSync('assets/sprites/npcs/camp_npcs_8dir.png');
+  if(atlas && npc.sheetRow!=null){
+    const col=facingColumn(npc.facing);
+    const animRow=npc.moving ? ((Math.floor(performance.now()/180)%2)?1:2) : 0;
+    const row=npc.sheetRow+animRow;
+    const key='npc:'+npc.id+':'+col+':'+row;
+    if(npcSpriteCache.has(key)) return npcSpriteCache.get(key);
+    const canvas=document.createElement('canvas');
+    canvas.width=96; canvas.height=96; canvas._hd2d=true;
+    const ctx=canvas.getContext('2d');
+    ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(atlas,col*96,row*96,96,96,0,0,96,96);
+    npcSpriteCache.set(key,canvas);
+    return canvas;
+  }
+  const key='npc:fallback:'+npc.id;
+  if(npcSpriteCache.has(key)) return npcSpriteCache.get(key);
+  const s=npc.sprite;
+  const canvas=drawHumanoid({
+    w:68,h:86,skin:'#c9a880',cloth:s.cloth,accent:s.accent,trim:s.trim||'#8a8a80',
+    hair:s.hair||'#2b1c14',weapon:s.weapon||'none',hood:!!s.hood,cloak:!!s.cloak,armor:s.armor||'leger',
   });
-  npcSpriteCache.set(npc.id, canvas);
+  npcSpriteCache.set(key,canvas);
   return canvas;
 }
+
 function spriteHumanoidOpts(s){
   return {
     skin:'#a89684', cloth:s.cloth||'#3a3830', accent:s.accent||'#5a2e2e', trim:'#8a8a80',
