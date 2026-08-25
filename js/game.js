@@ -717,7 +717,7 @@ export class Game{
       ctx.save();
       ctx.translate(moveX,Math.round(top+dstSplit));
       ctx.scale(1,scaleY);
-      ctx.drawImage(atlas,col*128,row*128,128,split,left-Math.round(prop.pos.x),-dstSplit,size,dstSplit);
+      ctx.drawImage(atlas,col*128,row*128,128,split,left,-dstSplit,size,dstSplit);
       ctx.restore();
     };
 
