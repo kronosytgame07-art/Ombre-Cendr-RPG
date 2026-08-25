@@ -393,7 +393,10 @@ function drawBigMap(){
 }
 
 // ---------------- Panneaux ----------------
-function refreshInventory(){ renderInventory(game.player, refreshInventory); }
+function refreshInventory(){
+  recomputeStats(game.player);
+  renderInventory(game.player, refreshInventory);
+}
 function refreshSkillTree(){ renderSkillTree(game.player, refreshSkillTree); }
 
 let currentNpc = null;

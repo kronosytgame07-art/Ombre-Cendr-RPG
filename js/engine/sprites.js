@@ -52,7 +52,8 @@ export function drawHumanoid(opts){
   const {
     w=44, h=56, skin='#d8b48a', cloth='#3a3230', accent='#8a1f1f', trim='#d8b45a',
     weapon='epee', hood=false, cloak=false, armor='leger', undead=false, robed=false,
-    outline='#0c0a09', hair='#2b1c14', shield=false, helmet=false, pose=null
+    outline='#0c0a09', hair='#2b1c14', shield=false, helmet=false,
+    gloves=false, boots=false, belt=false, amulet=false, rings=false, pose=null
   } = opts;
   const walk = pose && pose.walk || 0;
   const action = pose && pose.action || null;
@@ -73,6 +74,12 @@ export function drawHumanoid(opts){
   px(ctx, cx+w*0.04, legY-legSwing, w*0.12, h*0.30, clothD);
   px(ctx, cx-w*0.16, h*0.90+legSwing, w*0.12, h*0.08, outline);
   px(ctx, cx+w*0.04, h*0.90-legSwing, w*0.12, h*0.08, outline);
+  if(boots){
+    px(ctx,cx-w*0.19,h*0.79+legSwing,w*0.16,h*0.17,shade(trim,-24));
+    px(ctx,cx+w*0.02,h*0.79-legSwing,w*0.16,h*0.17,shade(trim,-24));
+    px(ctx,cx-w*0.21,h*0.91+legSwing,w*0.19,h*0.06,outline);
+    px(ctx,cx+w*0.01,h*0.91-legSwing,w*0.19,h*0.06,outline);
+  }
 
   // cape
   if(cloak){
@@ -93,7 +100,15 @@ export function drawHumanoid(opts){
     px(ctx, cx-w*0.22, torsoTop-h*0.02, w*0.44, h*0.10, shade(trim,-10));
     px(ctx, cx-w*0.02, torsoTop+h*0.02, w*0.04, h*0.28, trim);
   }
-  px(ctx, cx-w*0.20, torsoTop+h*0.24, w*0.40, h*0.06, accent); // ceinture
+  px(ctx, cx-w*0.20, torsoTop+h*0.24, w*0.40, h*0.06, belt?trim:accent); // ceinture
+  if(belt){
+    px(ctx,cx-w*0.04,torsoTop+h*0.225,w*0.08,h*0.09,shade(trim,18));
+    px(ctx,cx-w*0.015,torsoTop+h*0.245,w*0.03,h*0.045,outline);
+  }
+  if(amulet){
+    px(ctx,cx-1,torsoTop+h*0.08,2,h*0.10,shade(trim,-15));
+    circle(ctx,cx,torsoTop+h*0.19,Math.max(2,w*0.035),trim);
+  }
 
   const armY = torsoTop+h*0.02;
   const armLen = h*0.24, armW = w*0.12;
@@ -114,7 +129,7 @@ export function drawHumanoid(opts){
   const headY = h*0.08+headBob, headR = w*0.18;
   circle(ctx, cx, headY+headR, headR, skinC);
   if(helmet){
-    const steel = '#8b93a0', steelD = '#565d68';
+    const steel = shade(trim,22), steelD = shade(trim,-30);
     ctx.fillStyle = steel;
     ctx.beginPath(); ctx.arc(cx, headY+headR*0.75, headR*0.98, Math.PI, 0); ctx.fill();
     px(ctx, cx-headR*0.98, headY+headR*0.62, headR*1.96, headR*0.32, steelD);
@@ -153,6 +168,10 @@ export function drawHumanoid(opts){
     c.fillRect(-width/2, 0, width, len);
     c.fillStyle = handColor;
     c.beginPath(); c.arc(0, len, width*0.55, 0, Math.PI*2); c.fill();
+    if(gloves){
+      c.fillStyle=shade(trim,-28);c.fillRect(-width*.62,len-width*.15,width*1.24,width*.85);
+    }
+    if(rings){ c.fillStyle=trim;c.fillRect(width*.30,len+width*.12,2,2); }
     if(accessory) accessory(c, 0, len, width);
     c.restore();
   }

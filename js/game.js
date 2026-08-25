@@ -119,32 +119,50 @@ function drawFloorDecor(ctx, px, py, style, biome, time=0){
 // donjon repeints. Peint dans une passe séparée après toute la grille de sol
 // pour toujours recouvrir correctement les tuiles du dessus.
 function drawBuildingRoof(ctx, b){
-  const bx = b.x*TILE_SIZE, by = b.y*TILE_SIZE, bw = b.w*TILE_SIZE, bh = b.h*TILE_SIZE;
-  const roofH = bh*0.6;
-  const apexY = by - roofH*0.35;
-  const midX = bx + bw/2;
-  ctx.save();
-  ctx.fillStyle = '#4a2016';
-  ctx.beginPath();
-  ctx.moveTo(bx-3, by+roofH);
-  ctx.lineTo(bx-3, by+roofH*0.35);
-  ctx.lineTo(midX, apexY);
-  ctx.lineTo(bx+bw+3, by+roofH*0.35);
-  ctx.lineTo(bx+bw+3, by+roofH);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = '#652c1e';
-  ctx.beginPath();
-  ctx.moveTo(midX, apexY);
-  ctx.lineTo(bx+bw+3, by+roofH*0.35);
-  ctx.lineTo(bx+bw+3, by+roofH);
-  ctx.lineTo(midX, by+roofH*0.7);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = '#2e140d'; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(midX, apexY); ctx.lineTo(midX, by+roofH*0.7); ctx.stroke();
-  ctx.fillStyle = '#241009';
-  ctx.fillRect(bx+bw*0.68, apexY+roofH*0.15, bw*0.09, roofH*0.4);
+  const footprintW=b.w*TILE_SIZE;
+  const houseW=Math.min(208,Math.max(144,footprintW-18));
+  const wallH=64, roofH=76;
+  const cx=b.x*TILE_SIZE+footprintW/2;
+  const left=Math.round(cx-houseW/2), roofTop=Math.round(b.y*TILE_SIZE-roofH*0.34);
+  const wallTop=roofTop+roofH-10;
+  const seed=(b.x*31+b.y*17+b.w*7)&7;
+  ctx.save(); ctx.imageSmoothingEnabled=false;
+
+  // Ombre d'ancrage au sol.
+  ctx.globalAlpha=.38;ctx.fillStyle='#000';ctx.fillRect(left+10,wallTop+wallH-8,houseW-4,16);ctx.globalAlpha=1;
+  // Façade en pierre, irrégulière mais construite uniquement sur la grille pixel.
+  ctx.fillStyle='#19191a';ctx.fillRect(left+8,wallTop,houseW-16,wallH);
+  ctx.fillStyle='#303033';
+  for(let y=wallTop+4;y<wallTop+wallH-4;y+=9){
+    const shift=((y/9+seed)&1)*7;
+    for(let x=left+11-shift;x<left+houseW-12;x+=16) ctx.fillRect(x,y,12,6);
+  }
+  // Colombages et porte centrale.
+  ctx.fillStyle='#21120d';ctx.fillRect(left+14,wallTop,7,wallH);ctx.fillRect(left+houseW-22,wallTop,7,wallH);ctx.fillRect(left+8,wallTop+24,houseW-16,6);
+  const doorX=Math.round(cx-14);ctx.fillStyle='#120c09';ctx.fillRect(doorX,wallTop+27,28,37);ctx.fillStyle='#4a2818';ctx.fillRect(doorX+4,wallTop+31,20,33);ctx.fillStyle='#d6792c';ctx.fillRect(doorX+19,wallTop+48,3,3);
+  // Fenêtres éclairées avec croisillons.
+  for(const wx of [left+34,left+houseW-50]){
+    ctx.fillStyle='#100b09';ctx.fillRect(wx,wallTop+34,18,17);ctx.fillStyle='#bd5424';ctx.fillRect(wx+3,wallTop+37,12,11);ctx.fillStyle='#f0a13b';ctx.fillRect(wx+5,wallTop+39,8,7);ctx.fillStyle='#3a2015';ctx.fillRect(wx+8,wallTop+36,3,13);ctx.fillRect(wx+2,wallTop+43,14,3);
+  }
+
+  // Toiture en marches pixel, jamais en grand polygone lisse.
+  const half=Math.floor(houseW/2), step=6;
+  for(let y=0;y<roofH;y+=step){
+    const inset=Math.floor((roofH-y)/step)*step;
+    const rowLeft=left-inset/3, rowW=houseW+inset*2/3;
+    ctx.fillStyle=((y/step+seed)&1)?'#54241b':'#67291d';
+    ctx.fillRect(Math.round(rowLeft),roofTop+y,Math.round(rowW),step+1);
+    ctx.fillStyle='#2b1511';ctx.fillRect(Math.round(rowLeft),roofTop+y+step-2,Math.round(rowW),2);
+    // Tuiles individuelles décalées d'une rangée à l'autre.
+    ctx.fillStyle='rgba(15,8,7,.62)';
+    const tileShift=((y/step)&1)*7;
+    for(let tx=Math.round(rowLeft)+tileShift;tx<rowLeft+rowW;tx+=14) ctx.fillRect(tx,roofTop+y,2,step-1);
+  }
+  // Faîtage, pignons et mousse cendrée.
+  ctx.fillStyle='#301512';ctx.fillRect(Math.round(cx-4),roofTop-3,8,roofH+5);
+  ctx.fillStyle='#8a3a22';ctx.fillRect(Math.round(cx-2),roofTop-2,4,roofH+2);
+  ctx.fillStyle='#181714';
+  for(let i=0;i<8;i++) ctx.fillRect(left+12+((i*29+seed*11)%(houseW-30)),roofTop+20+((i*13)%42),5,3);
   ctx.restore();
 }
 
@@ -746,18 +764,20 @@ export class Game{
     if(prop.cell>=0&&prop.cell<=3){
       // Petites flammes locales des lanternes/torches des tentes. La toile et
       // les piquets restent fixes ; seuls quelques pixels lumineux changent.
-      const torchMap={0:[[91,72],[28,79]],1:[[101,71]],2:[[27,62]],3:[[32,72],[99,73]]};
+      // Coordonnées relevées cellule par cellule sur l'atlas 4×4. Les anciens
+      // points génériques faisaient flotter les flammes à côté des lanternes.
+      const torchMap={0:[[96,82]],1:[[106,72]],2:[[20,76],[100,74]],3:[[24,76],[108,78]]};
       const points=torchMap[prop.cell]||[];
       ctx.save(); ctx.imageSmoothingEnabled=false;
       for(let i=0;i<points.length;i++){
         const [sx,sy]=points[i];
         const tx=Math.round(left+sx/128*size), ty=Math.round(top+sy/128*size);
         const step=(Math.floor(this.time*12+i*2+seed)&3);
-        ctx.globalAlpha=0.20+step*0.035; ctx.fillStyle='#ff7a24';
-        ctx.fillRect(tx-5-step%2,ty-6,10+(step%2)*2,12);
+        ctx.globalAlpha=0.16+step*0.025; ctx.fillStyle='#ff7a24';
+        ctx.fillRect(tx-3,ty-5,6+(step&1),8);
         ctx.globalAlpha=1; ctx.fillStyle=step%2?'#ffd65a':'#ffad2f';
-        ctx.fillRect(tx-1,ty-4-(step===3?2:0),3,5);
-        ctx.fillStyle='#fff0a0'; ctx.fillRect(tx,ty-2,1,2);
+        ctx.fillRect(tx-1,ty-4-(step===3?1:0),3,5);
+        ctx.fillStyle='#fff0a0'; ctx.fillRect(tx,ty-2,1,1);
       }
       ctx.restore();
     }
@@ -828,8 +848,8 @@ export class Game{
     ctx.fillStyle='#000';
     ctx.beginPath(); ctx.ellipse(p.pos.x,p.pos.y+2,22,8,0,0,Math.PI*2); ctx.fill();
     ctx.restore();
-    const renderW = img._hd2d ? 96 : w;
-    const renderH = img._hd2d ? 96 : h;
+    const renderW = img._hd2d ? 96 : (img._modular?img.width:w);
+    const renderH = img._hd2d ? 96 : (img._modular?img.height:h);
     ctx.save();
     ctx.translate(p.pos.x, p.pos.y);
     if(!img._hd2d && p.facing.x < -0.1) ctx.scale(-1,1);

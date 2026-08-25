@@ -21,7 +21,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
   background:
     linear-gradient(90deg,rgba(3,3,4,.98) 0%,rgba(7,6,7,.92) 37%,rgba(7,6,7,.22) 70%,rgba(2,2,3,.7) 100%),
     radial-gradient(circle at 78% 31%,rgba(149,28,24,.48),transparent 9%),
-    url('../assets/ui/title-screen-v1.png') center/cover no-repeat;
+    url('../assets/ui/title-screen-v1.png') right center/contain no-repeat;
 }
 #screen-menu .menu-vignette{z-index:0;background:radial-gradient(ellipse at 75% 45%,transparent 10%,rgba(0,0,0,.62) 100%)}
 #screen-menu .embers{z-index:1}

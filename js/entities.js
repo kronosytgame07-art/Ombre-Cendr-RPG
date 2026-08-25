@@ -50,10 +50,42 @@ export function createPlayer(classId, name){
 // échantillonnés. Cela élimine les fragments de la frame voisine lors des
 // attaques et de la marche, même avec un zoom Canvas non entier.
 function drawSafeFrame(ctx, image, col, row, cell=96){
-  const inset=3;
+  // Six pixels de gouttière : certaines planches contiennent encore des
+  // fragments de la cellule voisine jusqu'à 4 px après le découpage IA.
+  const inset=6;
   ctx.clearRect(0,0,cell,cell);
   ctx.drawImage(image,col*cell+inset,row*cell+inset,cell-inset*2,cell-inset*2,
     inset,inset,cell-inset*2,cell-inset*2);
+  repairSpritePinholes(ctx, cell, cell);
+}
+
+// Le détourage IA a parfois transformé des pixels très sombres du manteau en
+// transparence. On ne touche jamais au fond extérieur : seuls les trous de 1
+// pixel enfermés dans la silhouette sont reconstruits avec la couleur moyenne
+// de leurs voisins opaques. Le sprite reste donc net, totalement opaque à
+// l'intérieur, et sans halo noir autour de lui.
+function repairSpritePinholes(ctx, width, height){
+  const image=ctx.getImageData(0,0,width,height), src=image.data;
+  const out=new Uint8ClampedArray(src);
+  const index=(x,y)=>(y*width+x)*4;
+  for(let y=2;y<height-2;y++) for(let x=2;x<width-2;x++){
+    const i=index(x,y);
+    if(src[i+3]!==0) continue;
+    const dirs=[[0,-1],[1,0],[0,1],[-1,0],[-1,-1],[1,-1],[1,1],[-1,1]];
+    const neighbours=[];
+    for(const [dx,dy] of dirs){
+      const ni=index(x+dx,y+dy);
+      if(src[ni+3]===255) neighbours.push(ni);
+    }
+    // Six voisins opaques minimum : impossible de combler un espace normal
+    // entre le corps, le bâton ou les pans volontairement déchirés du manteau.
+    if(neighbours.length<6) continue;
+    out[i]=Math.round(neighbours.reduce((s,n)=>s+src[n],0)/neighbours.length);
+    out[i+1]=Math.round(neighbours.reduce((s,n)=>s+src[n+1],0)/neighbours.length);
+    out[i+2]=Math.round(neighbours.reduce((s,n)=>s+src[n+2],0)/neighbours.length);
+    out[i+3]=255;
+  }
+  image.data.set(out); ctx.putImageData(image,0,0);
 }
 
 const heroFrameCache = new Map();
@@ -73,27 +105,49 @@ function heroAnimationRow(player, pose){
 }
 export function playerSpriteCanvas(player, pose){
   const cls=getClass(player.classId);
-  const sheet=cls.sheet && getImageSync(cls.sheet);
-  if(sheet){
-    const col=facingColumn(player.facing), row=heroAnimationRow(player,pose);
-    const key=player.classId+':'+col+':'+row;
-    if(heroFrameCache.has(key)) return heroFrameCache.get(key);
-    const canvas=document.createElement('canvas');
-    canvas.width=96; canvas.height=96; canvas._hd2d=true;
-    const ctx=canvas.getContext('2d');
-    ctx.imageSmoothingEnabled=false;
-    drawSafeFrame(ctx,sheet,col,row);
-    heroFrameCache.set(key,canvas);
-    return canvas;
-  }
   const weaponItem=player.equipment.arme;
   const weaponType=weaponItem ? weaponItem.weaponClass : 'none';
-  return drawHumanoid({
-    w:68,h:86,skin:cls.palette.skin,cloth:cls.palette.cloth,accent:cls.palette.accent,
-    trim:cls.palette.trim,hair:cls.palette.hair,weapon:weaponType,
-    hood:cls.hood&&!player.equipment.casque,cloak:cls.cloak,armor:cls.armorStyle,
-    shield:!!player.equipment.bouclier,helmet:!!player.equipment.casque,pose,
+  const rarityColor={commun:'#9b8d79',magique:'#4d8fff',rare:'#d9c942',epique:'#a84ee0',legendaire:'#e87927'};
+  const chest=player.equipment.plastron, helmet=player.equipment.casque;
+  const gearAccent=rarityColor[(chest||weaponItem||helmet)?.rarity]||cls.palette.accent;
+  let canvas=drawHumanoid({
+    w:80,h:96,skin:cls.palette.skin,
+    cloth:chest ? shade(cls.palette.cloth,12) : cls.palette.cloth,
+    accent:gearAccent,trim:rarityColor[weaponItem?.rarity]||cls.palette.trim,
+    hair:cls.palette.hair,weapon:weaponType,
+    hood:cls.hood&&!helmet,cloak:cls.cloak,armor:chest?'lourd':cls.armorStyle,
+    shield:!!player.equipment.bouclier,helmet:!!helmet,pose,
+    gloves:!!player.equipment.gants,boots:!!player.equipment.bottes,belt:!!player.equipment.ceinture,
+    amulet:!!player.equipment.amulette,rings:!!(player.equipment.anneau1||player.equipment.anneau2),
   });
+  canvas=orientModularHero(canvas,player.facing,cls,gearAccent,!!helmet);
+  canvas._modular=true;
+  return canvas;
+}
+
+function orientModularHero(source,facing,cls,accent,helmet){
+  const x=facing?.x||0,y=facing?.y||1;
+  const side=Math.abs(x)>.55, back=y<-.55;
+  if(!side&&!back) return source;
+  const canvas=document.createElement('canvas');canvas.width=source.width;canvas.height=source.height;
+  const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
+  if(side){
+    // Profil plus étroit, centré sur la même case. La gauche est obtenue par
+    // miroir dans drawPlayer ; la droite conserve l'orientation originale.
+    const dw=Math.round(source.width*.72),dx=Math.round((source.width-dw)/2);
+    ctx.drawImage(source,0,0,source.width,source.height,dx,0,dw,source.height);
+    ctx.fillStyle=shade(accent,-28);ctx.fillRect(Math.round(source.width*.38),22,Math.round(source.width*.12),45);
+  }else{
+    ctx.drawImage(source,0,0);
+    // Vue de dos explicite : cape et arrière du casque/capuchon recouvrent le
+    // visage frontal, ce qui empêche le héros de continuer à regarder en bas.
+    ctx.fillStyle=shade(accent,-30);
+    ctx.fillRect(Math.round(source.width*.30),25,Math.round(source.width*.40),43);
+    ctx.fillStyle=helmet?shade(accent,-10):shade(cls.palette.cloth,-18);
+    ctx.fillRect(Math.round(source.width*.36),10,Math.round(source.width*.28),23);
+    ctx.fillStyle=shade(accent,-42);ctx.fillRect(Math.round(source.width*.33),62,Math.round(source.width*.34),17);
+  }
+  return canvas;
 }
 
 const enemySpriteCache = new Map();

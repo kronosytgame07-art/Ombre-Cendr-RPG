@@ -12,6 +12,8 @@ import { playSfx } from '../engine/audio.js';
 export const SKILL_IMPL = {
   attaque_base_melee: {type:'melee_cone', dmgMult:1.0, dmgType:'physique', radius:58, angle:110, cost:0, cd:0.55},
   attaque_base_distance: {type:'projectile', dmgMult:0.9, dmgType:'physique', speed:9, radius:6, pierce:0, color:'#e8dcc8', cost:0, cd:0.6},
+  attaque_base_feu: {type:'projectile', dmgMult:0.9, dmgType:'feu', speed:9, radius:8, pierce:0, color:'#ff6a2b', cost:0, cd:0.6},
+  attaque_base_ombre: {type:'projectile', dmgMult:0.9, dmgType:'ombre', speed:8, radius:8, pierce:0, color:'#a34dff', cost:0, cd:0.65},
 
   boule_de_feu: {type:'projectile', dmgMult:1.35, dmgType:'feu', speed:9, radius:9, pierce:0, color:'#ff6a2b', status:{type:'burn', chanceStat:'burnChance', baseChance:20, dmgPctPerTick:6, ticks:3, interval:0.6}},
   tentacules_ombre: {type:'aoe_self', dmgMult:0.95, dmgType:'ombre', radius:120, status:{type:'slow', pct:0.35, duration:1.6}},
@@ -76,6 +78,8 @@ export function resolveSkillImpl(player, skillId){
 
 export function basicAttackSkillId(player){
   const cls = getClass(player.classId);
+  if(cls.id==='pyromancienne') return 'attaque_base_feu';
+  if(cls.id==='necrophore') return 'attaque_base_ombre';
   return ['arc','baton','sceptre'].includes(cls.weapon) ? 'attaque_base_distance' : 'attaque_base_melee';
 }
 
