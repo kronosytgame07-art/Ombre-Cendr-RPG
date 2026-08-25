@@ -4,7 +4,7 @@
 export const ZONES = [
   {
     id:'refuge', name:'Cendre-Refuge', kind:'town', order:0, levelRange:[1,1],
-    floorTile:'herbe_brulee', wallTile:'maison', accentTile:'cobble', size:{w:40,h:40},
+    floorTile:'foret_sol', wallTile:'maison', accentTile:'cobble', size:{w:40,h:40},
     ambient:'#283425', enemyPool:[], bossId:null, unlockRequires:null,
     blurb:"Le dernier bastion des Cendrés, bâti sur les ruines de Val-Aurore. Ici, pas de monstres — seulement des marchands, un forgeron, et l'Ordre des Braises qui vous enverra affronter ce qui rampe hors de la Faille."
   },

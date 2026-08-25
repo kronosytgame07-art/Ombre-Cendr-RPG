@@ -451,6 +451,8 @@ document.addEventListener('click', (e)=>{
     if(target) togglePanel(target);
   }
   if(e.target.closest('#minimap')) togglePanel('panel-map');
+  const mobilePanel=e.target.closest('[data-panel]');
+  if(mobilePanel&&game)togglePanel(`panel-${mobilePanel.dataset.panel}`);
 });
 
 window.addEventListener('keydown', (e)=>{
