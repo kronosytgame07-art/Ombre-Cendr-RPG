@@ -658,10 +658,14 @@ export class Game{
       }
     }
 
-    const drawList = [...this.enemies, ...this.allies, ...this.npcs.map(n=>({...n, isNpc:true})), {isPlayer:true, pos:this.player.pos, facing:this.player.facing}];
+    const campDrawables = (this.map.campProps||[]).map(p=>({
+      ...p, isCampProp:true, pos:{x:(p.x+0.5)*TILE_SIZE,y:(p.y+0.82)*TILE_SIZE}
+    }));
+    const drawList = [...campDrawables, ...this.enemies, ...this.allies, ...this.npcs.map(n=>({...n, isNpc:true})), {isPlayer:true, pos:this.player.pos, facing:this.player.facing}];
     drawList.sort((a,b)=>a.pos.y-b.pos.y);
     for(const ent of drawList){
       if(ent.isPlayer) this.drawPlayer(ctx);
+      else if(ent.isCampProp) this.drawCampProp(ctx, ent);
       else if(ent.isNpc) this.drawNpc(ctx, ent);
       else if(ent.kind==='squelette' || ent.kind==='loup') this.drawAlly(ctx, ent);
       else this.drawEnemy(ctx, ent);
@@ -671,6 +675,23 @@ export class Game{
 
     for(const f of this.fx) this.drawFx(ctx, f);
 
+    ctx.restore();
+  }
+
+  drawCampProp(ctx, prop){
+    const atlas=getImageSync('assets/sprites/world/camp_environment_atlas.png');
+    if(!atlas) return;
+    const col=prop.cell%4, row=Math.floor(prop.cell/4);
+    const large=prop.cell<8;
+    const base=large?128:88;
+    const size=Math.round(base*(prop.scale||1));
+    ctx.save();
+    ctx.imageSmoothingEnabled=false;
+    // Ombre de contact indépendante : elle détache les accessoires du pavé.
+    ctx.globalAlpha=large?0.34:0.25; ctx.fillStyle='#000';
+    ctx.beginPath(); ctx.ellipse(prop.pos.x,prop.pos.y,size*0.28,Math.max(4,size*0.07),0,0,Math.PI*2); ctx.fill();
+    ctx.globalAlpha=1;
+    ctx.drawImage(atlas,col*128,row*128,128,128,prop.pos.x-size/2,prop.pos.y-size+8,size,size);
     ctx.restore();
   }
 
