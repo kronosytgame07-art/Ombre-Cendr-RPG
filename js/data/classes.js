@@ -2,7 +2,7 @@
 export const CLASSES = [
   {
     id:'fervent', name:'Le Fervent', role:'Guerrier', resource:'rage', resourceColor:'#c23b3b',
-    weapon:'hache', armorStyle:'lourd', hood:false, cloak:false, sprite:'assets/sprites/heroes/fervent/portrait.png',
+    weapon:'hache', armorStyle:'lourd', hood:false, cloak:false, sprite:'assets/sprites/heroes/fervent/portrait.png', sheet:'assets/sprites/heroes/fervent/fervent_8dir_actions.png',
     palette:{skin:'#d8b48a', cloth:'#4a3a30', accent:'#8a1f1f', trim:'#d8b45a', hair:'#2b1c14'},
     tagline:"La cendre ne brûle pas deux fois celui qui l'a déjà traversée.",
     bio:`Ancien garde de Val-Aurore, le Fervent a survécu à l'Embrasement en portant sur son dos
@@ -18,7 +18,7 @@ centuple. Sur le champ de bataille, il est le mur derrière lequel les faibles t
   },
   {
     id:'pyromancienne', name:'La Pyromancienne', role:'Mage', resource:'mana', resourceColor:'#2b6fc2',
-    weapon:'baton', armorStyle:'leger', hood:false, cloak:true, sprite:'assets/sprites/heroes/pyromancienne/portrait.png',
+    weapon:'baton', armorStyle:'leger', hood:false, cloak:true, sprite:'assets/sprites/heroes/pyromancienne/portrait.png', sheet:'assets/sprites/heroes/pyromancienne/pyromancienne_8dir_actions.png',
     palette:{skin:'#e0c09a', cloth:'#5a1f1f', accent:'#ff6a2b', trim:'#ffb347', hair:'#7a1414'},
     tagline:"Le feu qui a détruit le monde m'obéit désormais.",
     bio:`Recueillie enfant dans les ruines fumantes de la Tour d'Astre, la Pyromancienne a appris à
@@ -34,7 +34,7 @@ le manier sans se consumer entièrement.`,
   },
   {
     id:'ombrelame', name:"L'Ombrelame", role:'Assassin', resource:'energie', resourceColor:'#7fd97f',
-    weapon:'dague', armorStyle:'leger', hood:true, cloak:true, sprite:'assets/sprites/heroes/ombrelame/portrait.png',
+    weapon:'dague', armorStyle:'leger', hood:true, cloak:true, sprite:'assets/sprites/heroes/ombrelame/portrait.png', sheet:'assets/sprites/heroes/ombrelame/ombrelame_8dir_actions.png',
     palette:{skin:'#c9a074', cloth:'#1f2a24', accent:'#2e5c3f', trim:'#7fd97f', hair:'#101010'},
     tagline:"Je suis l'ombre que même l'ombre ne voit pas venir.",
     bio:`Personne ne sait qui l'Ombrelame était avant l'Embrasement — elle-même prétend l'avoir
@@ -50,7 +50,7 @@ couler. Les cultistes de Nihilash la surnomment "la Seconde Ombre".`,
   },
   {
     id:'necrophore', name:'Le Nécrophore', role:'Invocateur', resource:'mana', resourceColor:'#2b6fc2',
-    weapon:'sceptre', armorStyle:'leger', hood:true, cloak:true, sprite:'assets/sprites/heroes/necrophore/portrait.png',
+    weapon:'sceptre', armorStyle:'leger', hood:true, cloak:true, sprite:'assets/sprites/heroes/necrophore/portrait.png', sheet:'assets/sprites/heroes/necrophore/necrophore_8dir_actions.png',
     palette:{skin:'#a89684', cloth:'#241f2a', accent:'#5a2e6b', trim:'#b34dff', hair:'#0c0c0c'},
     tagline:"Les morts de Val Cendré n'ont pas fini de servir.",
     bio:`Prêtre déchu d'un culte funéraire oublié, le Nécrophore a compris avant tout le monde que
@@ -66,7 +66,7 @@ redoutables contre les hordes qui déferlent de la Faille.`,
   },
   {
     id:'sentinelle', name:'La Sentinelle des Cendres', role:'Chasseresse', resource:'energie', resourceColor:'#7fd97f',
-    weapon:'arc', armorStyle:'leger', hood:false, cloak:false, sprite:'assets/sprites/heroes/sentinelle/portrait.png',
+    weapon:'arc', armorStyle:'leger', hood:false, cloak:false, sprite:'assets/sprites/heroes/sentinelle/portrait.png', sheet:'assets/sprites/heroes/sentinelle/sentinelle_8dir_actions.png',
     palette:{skin:'#c9a074', cloth:'#2c3a2a', accent:'#4a6b3a', trim:'#d8b45a', hair:'#4a3222'},
     tagline:"La cendre garde toujours la trace de ce qui a fui.",
     bio:`Née après l'Embrasement, la Sentinelle n'a jamais connu le ciel bleu dont parlent les
