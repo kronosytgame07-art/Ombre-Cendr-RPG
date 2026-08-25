@@ -54,6 +54,36 @@ function drawSafeFrame(ctx, image, col, row, cell=96){
   ctx.clearRect(0,0,cell,cell);
   ctx.drawImage(image,col*cell+inset,row*cell+inset,cell-inset*2,cell-inset*2,
     inset,inset,cell-inset*2,cell-inset*2);
+  repairSpritePinholes(ctx, cell, cell);
+}
+
+// Le détourage IA a parfois transformé des pixels très sombres du manteau en
+// transparence. On ne touche jamais au fond extérieur : seuls les trous de 1
+// pixel enfermés dans la silhouette sont reconstruits avec la couleur moyenne
+// de leurs voisins opaques. Le sprite reste donc net, totalement opaque à
+// l'intérieur, et sans halo noir autour de lui.
+function repairSpritePinholes(ctx, width, height){
+  const image=ctx.getImageData(0,0,width,height), src=image.data;
+  const out=new Uint8ClampedArray(src);
+  const index=(x,y)=>(y*width+x)*4;
+  for(let y=2;y<height-2;y++) for(let x=2;x<width-2;x++){
+    const i=index(x,y);
+    if(src[i+3]!==0) continue;
+    const dirs=[[0,-1],[1,0],[0,1],[-1,0],[-1,-1],[1,-1],[1,1],[-1,1]];
+    const neighbours=[];
+    for(const [dx,dy] of dirs){
+      const ni=index(x+dx,y+dy);
+      if(src[ni+3]===255) neighbours.push(ni);
+    }
+    // Six voisins opaques minimum : impossible de combler un espace normal
+    // entre le corps, le bâton ou les pans volontairement déchirés du manteau.
+    if(neighbours.length<6) continue;
+    out[i]=Math.round(neighbours.reduce((s,n)=>s+src[n],0)/neighbours.length);
+    out[i+1]=Math.round(neighbours.reduce((s,n)=>s+src[n+1],0)/neighbours.length);
+    out[i+2]=Math.round(neighbours.reduce((s,n)=>s+src[n+2],0)/neighbours.length);
+    out[i+3]=255;
+  }
+  image.data.set(out); ctx.putImageData(image,0,0);
 }
 
 const heroFrameCache = new Map();

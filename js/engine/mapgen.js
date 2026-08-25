@@ -104,7 +104,9 @@ function generateTownLayout(w, h, rng){
   const buildingCount = 6 + rng.int(0,3);
   const buildings = [];
   for(let i=0;i<buildingCount;i++){
-    const bw = rng.int(4,8), bh = rng.int(4,8);
+    // Maisons compactes : les anciennes empreintes jusqu'à 8×8 cases créaient
+    // des toits gigantesques qui occupaient presque tout l'écran au zoom jeu.
+    const bw = rng.int(4,6), bh = rng.int(4,5);
     const bx = rng.int(3, w-bw-3), by = rng.int(3, h-bh-3);
     for(let y=by;y<by+bh;y++) for(let x=bx;x<bx+bw;x++){
       const border = (x===bx||x===bx+bw-1||y===by||y===by+bh-1);
