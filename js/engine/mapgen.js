@@ -195,11 +195,39 @@ export function generateZoneMap(zone, seed){
     }
   }
 
+  // Décor fixe de Cendre-Refuge. Les positions sont relatives au centre et
+  // écartées des bâtiments pour préserver les chemins et la zone des PNJ.
+  const campProps = [];
+  if(zone.kind==='town'){
+    const specs = [
+      [-7,-5,0,1.18], [7,-5,1,1.08], [-7,6,2,1.15], [7,6,3,1.12],
+      [-11,-8,4,1.20], [11,-8,5,1.20], [-12,2,6,1.18], [12,2,7,1.20],
+      [-9,10,8,0.82], [-5,9,9,0.82], [0,4,10,0.88], [5,9,11,0.84],
+      [-3,-9,12,0.80], [3,-9,13,0.76], [-11,8,14,0.82], [11,8,15,0.80],
+    ];
+    const occupied=[];
+    const insideBuilding=(x,y)=>buildings.some(b=>x>=b.x-1&&x<=b.x+b.w&&y>=b.y-1&&y<=b.y+b.h);
+    for(const [ox,oy,cell,scale] of specs){
+      const wantedX=spawn[0]+ox, wantedY=spawn[1]+oy;
+      let chosen=null;
+      for(let radius=0;radius<=4&&!chosen;radius++){
+        for(let dy=-radius;dy<=radius&&!chosen;dy++) for(let dx=-radius;dx<=radius;dx++){
+          const x=wantedX+dx,y=wantedY+dy;
+          if(x<2||y<2||x>=w-2||y>=h-2||grid[y][x]!==FLOOR||insideBuilding(x,y)) continue;
+          if(Math.hypot(x-spawn[0],y-spawn[1])<3) continue;
+          if(occupied.some(p=>Math.hypot(p.x-x,p.y-y)<2.2)) continue;
+          chosen={x,y};
+        }
+      }
+      if(chosen){ occupied.push(chosen); campProps.push({...chosen,cell,scale}); }
+    }
+  }
+
   return {
     w, h, grid, spawn:{x:spawn[0], y:spawn[1]},
     portal: zone.kind==='town' ? null : {x:portal[0], y:portal[1]},
     bossSpawn: zone.kind==='town' ? null : {x:portal[0], y:portal[1]},
-    enemySpawns, chests, floorTiles, buildings,
+    enemySpawns, chests, floorTiles, buildings, campProps,
   };
 }
 
