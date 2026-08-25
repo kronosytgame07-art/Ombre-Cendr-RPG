@@ -2,7 +2,7 @@ import { TILE_SIZE } from './engine/config.js';
 import { Input } from './engine/input.js';
 import { makeTile } from './engine/sprites.js';
 import { generateZoneMap, isWalkable } from './engine/mapgen.js';
-import { getZone, nextZone, zoneLevel } from './data/zones.js';
+import { ZONES, getZone, nextZone, zoneLevel } from './data/zones.js';
 import { ENEMY_TYPES, BOSSES } from './data/enemies.js';
 import { createEnemy, createBoss, enemySpriteCanvas, bossSpriteCanvas, playerSpriteCanvas, npcSpriteCanvas, createPickup } from './entities.js';
 import { updateEnemyAI, applyEnemyHitOnPlayer, castSkill, basicAttackSkillId, resolveSkillImpl, applyPlayerHitOnEnemy } from './systems/combat.js';
@@ -119,15 +119,40 @@ function drawFloorDecor(ctx, px, py, style, biome, time=0){
 // donjon repeints. Peint dans une passe séparée après toute la grille de sol
 // pour toujours recouvrir correctement les tuiles du dessus.
 function drawBuildingRoof(ctx, b){
-  const img=getImageSync('assets/sprites/world/village_house_hd2d.png');
+  const variants=['house','inn','forge','shop'];
+  const type=variants[Math.abs((b.x*31+b.y*17))%variants.length];
+  const img=getImageSync(`assets/sprites/world/village-v2/${type}.png`);
   if(!img) return;
   const footprintW=b.w*TILE_SIZE,cx=b.x*TILE_SIZE+footprintW/2;
   const baseY=(b.y+b.h)*TILE_SIZE+4;
   const width=Math.min(210,Math.max(168,footprintW-8));
   const height=Math.round(width*(img.height/img.width));
   ctx.save();ctx.imageSmoothingEnabled=false;
-  ctx.globalAlpha=.34;ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(cx,baseY-5,width*.41,12,0,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
   ctx.drawImage(img,Math.round(cx-width/2),Math.round(baseY-height),width,height);
+  ctx.restore();
+}
+
+function drawFortifiedPerimeter(ctx,map){
+  const wall=getImageSync('assets/sprites/world/village-v2/wall_straight.png');
+  const tower=getImageSync('assets/sprites/world/village-v2/tower.png');
+  const gate=getImageSync('assets/sprites/world/village-v2/gatehouse.png');
+  if(!wall||!tower||!gate)return;
+  const worldW=map.w*TILE_SIZE,worldH=map.h*TILE_SIZE,segment=160;
+  ctx.save();ctx.imageSmoothingEnabled=false;
+  for(let x=80;x<worldW-80;x+=segment){
+    if(Math.abs(x-worldW/2)>110){
+      ctx.drawImage(wall,x-segment/2,-28,segment,132);
+      ctx.drawImage(wall,x-segment/2,worldH-102,segment,132);
+    }
+  }
+  for(let y=100;y<worldH-100;y+=segment){
+    ctx.save();ctx.translate(68,y);ctx.rotate(Math.PI/2);ctx.drawImage(wall,-66,-80,132,160);ctx.restore();
+    ctx.save();ctx.translate(worldW-68,y);ctx.rotate(-Math.PI/2);ctx.drawImage(wall,-66,-80,132,160);ctx.restore();
+  }
+  const tw=128,th=142;
+  for(const [x,y] of [[0,0],[worldW-tw,0],[0,worldH-th],[worldW-tw,worldH-th]])ctx.drawImage(tower,x,y,tw,th);
+  ctx.drawImage(gate,worldW/2-92,-42,184,174);
+  ctx.drawImage(gate,worldW/2-92,worldH-132,184,174);
   ctx.restore();
 }
 
@@ -157,6 +182,7 @@ export class Game{
     this.paused = false;
     this.time = 0;
     this.deathHandled = false;
+    this.worldTransitionLock = 0;
     this.victoryHandled = false;
     Input.bindCanvas(canvas, this.camera);
     this.bindMobileControls();
@@ -193,7 +219,7 @@ export class Game{
     }
   }
 
-  enterZone(zoneId){
+  enterZone(zoneId, entry='center'){
     const zone = getZone(zoneId);
     this.zone = zone;
     this.player.currentZone = zoneId;
@@ -211,8 +237,11 @@ export class Game{
     this.nearbyNpc = null;
     this.npcs = npcsForZone(zoneId).map(n => this.placeNpc(n));
 
-    this.player.pos.x = (this.map.spawn.x+0.5)*TILE_SIZE;
-    this.player.pos.y = (this.map.spawn.y+0.5)*TILE_SIZE;
+    const entryTile=entry==='north'?{x:this.map.exits.north.x,y:2}:
+      entry==='south'?{x:this.map.exits.south.x,y:this.map.h-3}:this.map.spawn;
+    this.player.pos.x = (entryTile.x+0.5)*TILE_SIZE;
+    this.player.pos.y = (entryTile.y+0.5)*TILE_SIZE;
+    this.worldTransitionLock=.65;
 
     const lvl = zone.kind==='town' ? 1 : zoneLevel(zone);
     const diffMult = getDifficultyMult();
@@ -340,6 +369,7 @@ export class Game{
   update(dt){
     if(this.paused) return;
     this.time += dt;
+    this.worldTransitionLock=Math.max(0,this.worldTransitionLock-dt);
     const player = this.player;
     if(this.camera.shakeMag>0){ this.camera.shakeMag *= Math.max(0, 1-dt*8); if(this.camera.shakeMag<0.05) this.camera.shakeMag=0; }
 
@@ -352,6 +382,7 @@ export class Game{
     }
 
     this.handleMovement(dt);
+    if(this.handleWorldTransition()){Input.endFrame();return;}
     this.updateNpcs(dt);
     this.updateNpcProximity();
     this.handleInputActions();
@@ -371,6 +402,19 @@ export class Game{
     }
 
     Input.endFrame();
+  }
+
+  handleWorldTransition(){
+    if(this.worldTransitionLock>0||!this.map?.exits)return false;
+    const index=ZONES.findIndex(z=>z.id===this.zone.id);
+    const ty=this.player.pos.y/TILE_SIZE;
+    if(ty<1.15&&index>0){this.enterZone(ZONES[index-1].id,'south');return true;}
+    if(ty>this.map.h-1.15&&index<ZONES.length-1){
+      const destination=ZONES[index+1];
+      if(!this.player.unlockedZones.includes(destination.id))this.player.unlockedZones.push(destination.id);
+      this.enterZone(destination.id,'north');return true;
+    }
+    return false;
   }
 
   handleMovement(dt){
@@ -643,6 +687,7 @@ export class Game{
       }
     }
 
+    if(this.zone.kind==='town')drawFortifiedPerimeter(ctx,this.map);
     if(this.map.buildings && this.map.buildings.length){
       for(const b of this.map.buildings) drawBuildingRoof(ctx, b);
     }

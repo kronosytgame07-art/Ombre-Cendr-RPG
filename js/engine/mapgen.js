@@ -158,6 +158,19 @@ export function generateZoneMap(zone, seed){
   }
   if(!spawn) spawn=[Math.floor(w/2), Math.floor(h/2)];
 
+  // Le monde n'est plus un ensemble de salles accessibles par téléportation.
+  // Chaque région possède deux véritables passages de bord reliés à la zone
+  // jouable. Le passage nord revient vers la région précédente, le passage
+  // sud poursuit naturellement l'aventure.
+  const gateX=Math.floor(w/2);
+  for(let y=0;y<=spawn[1];y++){
+    for(let dx=-1;dx<=1;dx++)if(gateX+dx>0&&gateX+dx<w-1)grid[y][gateX+dx]=FLOOR;
+  }
+  for(let y=spawn[1];y<h;y++){
+    for(let dx=-1;dx<=1;dx++)if(gateX+dx>0&&gateX+dx<w-1)grid[y][gateX+dx]=FLOOR;
+  }
+  const exits={north:{x:gateX,y:0},south:{x:gateX,y:h-1}};
+
   let portal = spawn, farInfo = null;
   if(zone.kind !== 'town'){
     farInfo = bfsFarthest(grid, w, h, spawn[0], spawn[1]);
@@ -229,7 +242,7 @@ export function generateZoneMap(zone, seed){
     w, h, grid, spawn:{x:spawn[0], y:spawn[1]},
     portal: zone.kind==='town' ? null : {x:portal[0], y:portal[1]},
     bossSpawn: zone.kind==='town' ? null : {x:portal[0], y:portal[1]},
-    enemySpawns, chests, floorTiles, buildings, campProps,
+    enemySpawns, chests, floorTiles, buildings, campProps, exits,
   };
 }
 
