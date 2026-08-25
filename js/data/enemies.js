@@ -14,6 +14,7 @@ export const ENEMY_TYPES = {
   chien_suie: {
     id:'chien_suie', name:'Chien de Suie', family:'bête',
     sprite:{kind:'creature', shape:'hound', main:'#2b2521', eye:'#ff6a2b'},
+    sheet:'assets/sprites/enemies/chien_suie_8dir.png',
     behavior:'melee', speed:1.6, aggroRange:260, atkRange:30, atkCooldown:0.9,
     base:{hp:18, dmg:[3,6], armor:0, xp:6},
     resist:{}, zones:['foret','cimetiere'],
