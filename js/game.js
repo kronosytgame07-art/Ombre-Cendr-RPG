@@ -764,18 +764,20 @@ export class Game{
     if(prop.cell>=0&&prop.cell<=3){
       // Petites flammes locales des lanternes/torches des tentes. La toile et
       // les piquets restent fixes ; seuls quelques pixels lumineux changent.
-      const torchMap={0:[[91,72],[28,79]],1:[[101,71]],2:[[27,62]],3:[[32,72],[99,73]]};
+      // Coordonnées relevées cellule par cellule sur l'atlas 4×4. Les anciens
+      // points génériques faisaient flotter les flammes à côté des lanternes.
+      const torchMap={0:[[96,82]],1:[[106,72]],2:[[20,76],[100,74]],3:[[24,76],[108,78]]};
       const points=torchMap[prop.cell]||[];
       ctx.save(); ctx.imageSmoothingEnabled=false;
       for(let i=0;i<points.length;i++){
         const [sx,sy]=points[i];
         const tx=Math.round(left+sx/128*size), ty=Math.round(top+sy/128*size);
         const step=(Math.floor(this.time*12+i*2+seed)&3);
-        ctx.globalAlpha=0.20+step*0.035; ctx.fillStyle='#ff7a24';
-        ctx.fillRect(tx-5-step%2,ty-6,10+(step%2)*2,12);
+        ctx.globalAlpha=0.16+step*0.025; ctx.fillStyle='#ff7a24';
+        ctx.fillRect(tx-3,ty-5,6+(step&1),8);
         ctx.globalAlpha=1; ctx.fillStyle=step%2?'#ffd65a':'#ffad2f';
-        ctx.fillRect(tx-1,ty-4-(step===3?2:0),3,5);
-        ctx.fillStyle='#fff0a0'; ctx.fillRect(tx,ty-2,1,2);
+        ctx.fillRect(tx-1,ty-4-(step===3?1:0),3,5);
+        ctx.fillStyle='#fff0a0'; ctx.fillRect(tx,ty-2,1,1);
       }
       ctx.restore();
     }
@@ -846,8 +848,8 @@ export class Game{
     ctx.fillStyle='#000';
     ctx.beginPath(); ctx.ellipse(p.pos.x,p.pos.y+2,22,8,0,0,Math.PI*2); ctx.fill();
     ctx.restore();
-    const renderW = img._hd2d ? 96 : w;
-    const renderH = img._hd2d ? 96 : h;
+    const renderW = img._hd2d ? 96 : (img._modular?img.width:w);
+    const renderH = img._hd2d ? 96 : (img._modular?img.height:h);
     ctx.save();
     ctx.translate(p.pos.x, p.pos.y);
     if(!img._hd2d && p.facing.x < -0.1) ctx.scale(-1,1);
