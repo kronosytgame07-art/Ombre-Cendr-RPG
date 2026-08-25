@@ -12,12 +12,14 @@ import { setDifficulty } from './engine/difficulty.js';
 import { setVolumes, unlockAudio, startMusic, playSfx } from './engine/audio.js';
 
 const VILLAGE_V2=['inn','house','forge','shop','tent'].map(n=>`assets/sprites/world/village-v2/${n}.png`);
+const STATIC_ENEMY_SHEETS=['voile_ombre','squelette_guerrier','gardien_pierre','troll_roc',
+  'cultiste_nihilash','minotaure_lave'].map(n=>`assets/sprites/enemies/v2/${n}_8dir_actions.png`);
 // Les grandes planches 8x8 défectueuses ne sont plus préchargées : le rendu
 // utilise les acteurs procéduraux, ce qui évite aussi plusieurs dizaines de Mo
 // de textures RGBA décodées en mémoire.
-const HERO_IMAGE_PATHS = [...CLASSES.map(c=>c.sprite).filter(Boolean), ...VILLAGE_V2,
+const HERO_IMAGE_PATHS = [...CLASSES.map(c=>c.sprite).filter(Boolean),...STATIC_ENEMY_SHEETS,...VILLAGE_V2,
   'assets/tiles/terrain_atlas.png','assets/sprites/world/world_props_atlas.png',
-  'assets/sprites/world/camp_environment_atlas.png'];
+  'assets/sprites/world/camp_environment_atlas.png','assets/sprites/npcs/camp_npcs_8dir.png'];
 
 let game = null;
 let currentSlot = null;
