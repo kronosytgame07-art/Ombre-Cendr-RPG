@@ -385,7 +385,15 @@ export class Game{
 
   walkablePixel(px, py){
     if(!this.map) return true;
-    return isWalkable(this.map, Math.floor(px/TILE_SIZE), Math.floor(py/TILE_SIZE));
+    if(!isWalkable(this.map, Math.floor(px/TILE_SIZE), Math.floor(py/TILE_SIZE))) return false;
+    // Les gros accessoires du refuge ont une vraie emprise physique : on ne
+    // traverse plus les tentes, troncs, braseros ou piles de caisses.
+    for(const p of this.map.campProps||[]){
+      const cx=(p.x+0.5)*TILE_SIZE, cy=(p.y+0.72)*TILE_SIZE;
+      const radius=p.cell<8?30:(p.cell===10?20:17);
+      if(Math.hypot(px-cx,py-cy)<radius+PLAYER_RADIUS*0.55) return false;
+    }
+    return true;
   }
 
   handleInputActions(){
@@ -683,6 +691,7 @@ export class Game{
     if(!atlas) return;
     const col=prop.cell%4, row=Math.floor(prop.cell/4);
     const large=prop.cell<8;
+    const isTent=prop.cell>=0&&prop.cell<=3;
     const isTree=prop.cell>=4&&prop.cell<=7;
     const isFire=prop.cell===10;
     const base=large?128:88;
@@ -690,6 +699,7 @@ export class Game{
     const seed=prop.x*0.71+prop.y*1.37;
     // Animation volontairement quantifiée : mouvement vivant sans aucun flou sub-pixel.
     const sway=isTree ? Math.round(Math.sin(this.time*1.25+seed)*2)*0.006 : 0;
+    const clothStep=isTent ? Math.round(Math.sin(this.time*1.7+seed)*2) : 0;
     const fireStep=isFire ? Math.floor(this.time*10)%4 : 0;
     const firePulse=isFire ? [0.96,1.03,0.99,1.06][fireStep] : 1;
     ctx.save();
@@ -699,6 +709,7 @@ export class Game{
     ctx.globalAlpha=1;
     ctx.translate(Math.round(prop.pos.x),Math.round(prop.pos.y));
     if(isTree) ctx.rotate(sway);
+    if(isTent) ctx.transform(1,0,clothStep*0.002,1,0,0);
     if(isFire) ctx.scale(firePulse,1/firePulse);
     ctx.drawImage(atlas,col*128,row*128,128,128,Math.round(-size/2),Math.round(-size+8),size,size);
     ctx.restore();
