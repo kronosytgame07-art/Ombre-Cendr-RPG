@@ -1,3 +1,5 @@
+import { getImageSync } from './assets.js';
+
 // Générateur de pixel-art procédural : chaque silhouette est dessinée une seule fois
 // sur un petit canvas (grille de "gros pixels"), puis mise à l'échelle sans lissage
 // (image-rendering: pixelated) pour un rendu HD "pixel-art" net et détaillé.
@@ -356,6 +358,18 @@ export function drawItemIcon(kind, colorMain='#c9c9c9', rarityColor='#888'){
   const key = 'item_'+kind+'_'+colorMain+'_'+rarityColor;
   if(cache.has(key)) return cache.get(key);
   const w=40,h=40; const {canvas,ctx}=newCanvas(w,h);
+  const atlas=getImageSync('assets/sprites/items/equipment_atlas.png');
+  const atlasOrder=['epee','hache','dague','arc','baton','sceptre','bouclier','casque','plastron','gants','bottes','ceinture','anneau','amulette','potion_vie','potion_mana'];
+  const atlasIndex=atlasOrder.indexOf(kind);
+  if(atlas && atlasIndex>=0){
+    const col=atlasIndex%4, row=Math.floor(atlasIndex/4);
+    ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(atlas,col*128,row*128,128,128,2,2,36,36);
+    ctx.strokeStyle=rarityColor; ctx.lineWidth=2;
+    ctx.strokeRect(1,1,w-2,h-2);
+    cache.set(key,canvas);
+    return canvas;
+  }
   const cx=w/2, cy=h/2;
   ctx.strokeStyle=rarityColor; ctx.lineWidth=2;
   ctx.strokeRect(1,1,w-2,h-2);
