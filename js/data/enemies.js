@@ -50,6 +50,7 @@ export const ENEMY_TYPES = {
   serpent_marais: {
     id:'serpent_marais', name:'Serpent du Marais', family:'bête',
     sprite:{kind:'creature', shape:'serpent', main:'#2f3a24', eye:'#e8d842'},
+    sheet:'assets/sprites/enemies/serpent_marais_8dir.png',
     behavior:'melee', speed:1.4, aggroRange:200, atkRange:30, atkCooldown:1.0,
     base:{hp:24, dmg:[4,8], armor:1, xp:8, poisonOnHit:0.35},
     resist:{}, zones:['marais'],
