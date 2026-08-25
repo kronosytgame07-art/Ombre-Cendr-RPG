@@ -746,15 +746,15 @@ export class Game{
     } else if(isHumanoid){
       const walk = e.moving ? Math.sin(this.time*8+e.uid) : 0;
       const action = e.action ? {kind:e.action.kind, phase:Math.min(1,e.action.t/e.action.duration)} : null;
-      img = enemySpriteCanvas(def, {walk, action});
-      w=68; h=86;
+      img=enemySpriteCanvas(def,{walk,action},e);
+      w=img._hd2d?96:68; h=img._hd2d?96:86;
     } else {
       img = enemySpriteCanvas(def); w=76; h=64;
       bob = Math.sin(this.time*6 + e.uid) * (e.moving?4:1.8);
     }
     ctx.save();
     ctx.translate(e.pos.x, e.pos.y+bob);
-    if(e.facing.x < -0.1) ctx.scale(-1,1);
+    if(!img._hd2d && e.facing.x < -0.1) ctx.scale(-1,1);
     let alpha = e.dead ? Math.max(0, e.deathTimer/0.6) : 1;
     ctx.globalAlpha = alpha;
     ctx.drawImage(img, -w/2, -h+12, w, h);
