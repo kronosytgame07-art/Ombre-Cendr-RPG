@@ -82,7 +82,7 @@ $('main-menu-list').addEventListener('click', (e)=>{
   if(action==='continue'){
     const slots = listSaveSlots().filter(s=>!s.empty && !s.corrupted);
     if(slots.length){ slots.sort((a,b)=>b.savedAt-a.savedAt); loadSlot(slots[0].slot); }
-    else showScreen('screen-charselect');
+    else openCharSelect();
   }
   else if(action==='new'){ openCharSelect(); }
   else if(action==='load'){ renderLoadScreen(); showScreen('screen-load'); }
