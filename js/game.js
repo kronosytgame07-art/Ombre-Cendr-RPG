@@ -690,46 +690,67 @@ export class Game{
     const atlas=getImageSync('assets/sprites/world/camp_environment_atlas.png');
     if(!atlas) return;
     const col=prop.cell%4, row=Math.floor(prop.cell/4);
-    const large=prop.cell<8;
-    const isTent=prop.cell>=0&&prop.cell<=3;
-    const isTree=prop.cell>=4&&prop.cell<=7;
+    const foliageTree=prop.cell===4||prop.cell===7;
     const isFire=prop.cell===10;
+    const isGrass=prop.cell===15;
+    const large=prop.cell<8;
     const base=large?128:88;
     const size=Math.round(base*(prop.scale||1));
+    const left=Math.round(prop.pos.x-size/2), top=Math.round(prop.pos.y-size+8);
     const seed=prop.x*0.71+prop.y*1.37;
-    // Animation volontairement quantifiée : mouvement vivant sans aucun flou sub-pixel.
-    const sway=isTree ? Math.round(Math.sin(this.time*1.25+seed)*2)*0.006 : 0;
-    const clothStep=isTent ? Math.round(Math.sin(this.time*1.7+seed)*2) : 0;
-    const fireStep=isFire ? Math.floor(this.time*10)%4 : 0;
-    const firePulse=isFire ? [0.96,1.03,0.99,1.06][fireStep] : 1;
+    const swayStep=Math.round(Math.sin(this.time*1.25+seed)*2);
+    const fireStep=Math.floor(this.time*10)%4;
+
     ctx.save();
     ctx.imageSmoothingEnabled=false;
     ctx.globalAlpha=large?0.34:0.25; ctx.fillStyle='#000';
     ctx.beginPath(); ctx.ellipse(prop.pos.x,prop.pos.y,size*0.28,Math.max(4,size*0.07),0,0,Math.PI*2); ctx.fill();
-    ctx.globalAlpha=1;
-    ctx.translate(Math.round(prop.pos.x),Math.round(prop.pos.y));
-    if(isTree) ctx.rotate(sway);
-    if(isTent) ctx.transform(1,0,clothStep*0.002,1,0,0);
-    if(isFire) ctx.scale(firePulse,1/firePulse);
-    ctx.drawImage(atlas,col*128,row*128,128,128,Math.round(-size/2),Math.round(-size+8),size,size);
+    ctx.restore();
+
+    const drawStatic=()=>{
+      ctx.drawImage(atlas,col*128,row*128,128,128,left,top,size,size);
+    };
+    const drawSplit=(split,moveX=0,scaleY=1)=>{
+      const dstSplit=Math.round(size*split/128);
+      // Racines, tronc visible, brasero et pierres restent rigoureusement fixes.
+      ctx.drawImage(atlas,col*128,row*128+split,128,128-split,left,top+dstSplit,size,size-dstSplit);
+      ctx.save();
+      ctx.translate(moveX,Math.round(top+dstSplit));
+      ctx.scale(1,scaleY);
+      ctx.drawImage(atlas,col*128,row*128,128,split,left-Math.round(prop.pos.x),-dstSplit,size,dstSplit);
+      ctx.restore();
+    };
+
+    ctx.save(); ctx.imageSmoothingEnabled=false;
+    if(foliageTree){
+      // La coupe se fait au-dessus du tronc visible : seule la couronne oscille.
+      drawSplit(78,swayStep,1);
+    }else if(isGrass){
+      // Les racines et pierres ne bougent pas ; seules les tiges prennent le vent.
+      drawSplit(82,swayStep,1);
+    }else if(isFire){
+      // Le cercle métallique et les bûches sont fixes, seule la flamme respire.
+      const flameScale=[0.94,1.05,0.98,1.08][fireStep];
+      drawSplit(76,fireStep===1?-1:fireStep===3?1:0,flameScale);
+    }else{
+      // Tentes, arbres nus et accessoires restent fixes : aucune déformation globale.
+      drawStatic();
+    }
     ctx.restore();
 
     if(isFire){
-      ctx.save();
-      ctx.imageSmoothingEnabled=false;
+      ctx.save(); ctx.imageSmoothingEnabled=false;
       const pulse=0.12+(fireStep*0.025);
       const glow=ctx.createRadialGradient(prop.pos.x,prop.pos.y-22,2,prop.pos.x,prop.pos.y-16,58);
       glow.addColorStop(0,`rgba(255,174,58,${pulse+0.14})`);
       glow.addColorStop(1,'rgba(255,72,18,0)');
       ctx.fillStyle=glow; ctx.fillRect(prop.pos.x-60,prop.pos.y-78,120,82);
-      // Braises carrées : trajectoires répétables, sans interpolation lissée.
       for(let i=0;i<7;i++){
         const cycle=(this.time*(0.65+i*0.07)+i*0.19)%1;
         const bx=Math.round(prop.pos.x+Math.sin(seed+i*2.1)*13*(1-cycle));
         const by=Math.round(prop.pos.y-42-cycle*42);
         const s=cycle<0.55?3:2;
-        ctx.globalAlpha=1-cycle;
-        ctx.fillStyle=i%2?'#ffb52e':'#ff5a1f';
+        ctx.globalAlpha=1-cycle; ctx.fillStyle=i%2?'#ffb52e':'#ff5a1f';
         ctx.fillRect(bx,by,s,s);
       }
       ctx.restore();
