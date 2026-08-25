@@ -5,6 +5,7 @@ export const ENEMY_TYPES = {
   cendre_corrompu: {
     id:'cendre_corrompu', name:'Cendré Corrompu', family:'mort-vivant',
     sprite:{kind:'humanoid', weapon:'dague', undead:true, cloth:'#3a3830', accent:'#5a2e2e'},
+    sheet:'assets/sprites/enemies/cendre_corrompu_8dir.png',
     behavior:'melee', speed:0.9, aggroRange:220, atkRange:34, atkCooldown:1.2,
     base:{hp:26, dmg:[4,7], armor:2, xp:8},
     resist:{}, zones:['foret','cimetiere'],
