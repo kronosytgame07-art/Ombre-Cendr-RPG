@@ -362,6 +362,10 @@ html,body,#app{font-family:"Courier New",Consolas,monospace; image-rendering:pix
   box-shadow:0 0 0 2px #4c3b31,0 0 0 6px #171210,inset 0 0 80px #000;
 }
 .screen>*{position:relative; z-index:1;}
+/* Les fenêtres de jeu sont des overlays. Cette règle doit suivre la règle
+   décorative ci-dessus, sinon elles redeviennent relatives et se placent sous
+   le canvas (hors du viewport) malgré la classe .open. */
+.screen > .panel{position:absolute;z-index:20;}
 #screen-game::before{display:none;}
 
 #screen-menu{align-items:flex-start;padding-left:10vw;}
