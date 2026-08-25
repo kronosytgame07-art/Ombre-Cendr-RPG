@@ -738,6 +738,25 @@ export class Game{
     }
     ctx.restore();
 
+    if(prop.cell>=0&&prop.cell<=3){
+      // Petites flammes locales des lanternes/torches des tentes. La toile et
+      // les piquets restent fixes ; seuls quelques pixels lumineux changent.
+      const torchMap={0:[[91,72],[28,79]],1:[[101,71]],2:[[27,62]],3:[[32,72],[99,73]]};
+      const points=torchMap[prop.cell]||[];
+      ctx.save(); ctx.imageSmoothingEnabled=false;
+      for(let i=0;i<points.length;i++){
+        const [sx,sy]=points[i];
+        const tx=Math.round(left+sx/128*size), ty=Math.round(top+sy/128*size);
+        const step=(Math.floor(this.time*12+i*2+seed)&3);
+        ctx.globalAlpha=0.20+step*0.035; ctx.fillStyle='#ff7a24';
+        ctx.fillRect(tx-5-step%2,ty-6,10+(step%2)*2,12);
+        ctx.globalAlpha=1; ctx.fillStyle=step%2?'#ffd65a':'#ffad2f';
+        ctx.fillRect(tx-1,ty-4-(step===3?2:0),3,5);
+        ctx.fillStyle='#fff0a0'; ctx.fillRect(tx,ty-2,1,2);
+      }
+      ctx.restore();
+    }
+
     if(isFire){
       ctx.save(); ctx.imageSmoothingEnabled=false;
       const pulse=0.12+(fireStep*0.025);
