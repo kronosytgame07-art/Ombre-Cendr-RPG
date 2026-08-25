@@ -46,6 +46,16 @@ export function createPlayer(classId, name){
 }
 
 // Sprites HD-2D : grille 8 directions × 8 états, cellules de 96 px.
+// Gouttière de sécurité : les 3 pixels de bord de chaque cellule ne sont jamais
+// échantillonnés. Cela élimine les fragments de la frame voisine lors des
+// attaques et de la marche, même avec un zoom Canvas non entier.
+function drawSafeFrame(ctx, image, col, row, cell=96){
+  const inset=3;
+  ctx.clearRect(0,0,cell,cell);
+  ctx.drawImage(image,col*cell+inset,row*cell+inset,cell-inset*2,cell-inset*2,
+    inset,inset,cell-inset*2,cell-inset*2);
+}
+
 const heroFrameCache = new Map();
 function facingColumn(facing){
   const x=facing?.x||0, y=facing?.y||1;
@@ -72,7 +82,7 @@ export function playerSpriteCanvas(player, pose){
     canvas.width=96; canvas.height=96; canvas._hd2d=true;
     const ctx=canvas.getContext('2d');
     ctx.imageSmoothingEnabled=false;
-    ctx.drawImage(sheet,col*96,row*96,96,96,0,0,96,96);
+    drawSafeFrame(ctx,sheet,col,row);
     heroFrameCache.set(key,canvas);
     return canvas;
   }
@@ -105,7 +115,7 @@ export function enemySpriteCanvas(def, pose, entity=null){
     canvas.width=96; canvas.height=96; canvas._hd2d=true;
     const ctx=canvas.getContext('2d');
     ctx.imageSmoothingEnabled=false;
-    ctx.drawImage(sheet,col*96,row*96,96,96,0,0,96,96);
+    drawSafeFrame(ctx,sheet,col,row);
     enemySpriteCache.set(key,canvas);
     return canvas;
   }
@@ -130,7 +140,7 @@ export function npcSpriteCanvas(npc){
     canvas.width=96; canvas.height=96; canvas._hd2d=true;
     const ctx=canvas.getContext('2d');
     ctx.imageSmoothingEnabled=false;
-    ctx.drawImage(atlas,col*96,row*96,96,96,0,0,96,96);
+    drawSafeFrame(ctx,atlas,col,row);
     npcSpriteCache.set(key,canvas);
     return canvas;
   }
