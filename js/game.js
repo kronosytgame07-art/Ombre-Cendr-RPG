@@ -639,7 +639,7 @@ export class Game{
       if(props){
         const frame=this.bossSpawnedThisVisit ? 0 : Math.floor(this.time*6)%4;
         ctx.imageSmoothingEnabled=false;
-        ctx.drawImage(props,frame*128,128,128,128,px-52,py-88,104,104);
+        ctx.drawImage(props,frame*128+3,131,122,122,px-52,py-88,104,104);
       }else{
         const pulse=10+Math.sin(this.time*3)*4;
         ctx.strokeStyle=this.bossSpawnedThisVisit?'#555':(this.zone.isFinal?'#8a1fff':'#ff8c2b');
@@ -659,7 +659,7 @@ export class Game{
         const elapsed=Math.max(0,(performance.now()-p.bornAt)/1000);
         const frame=Math.min(3,Math.floor(elapsed/0.18));
         ctx.imageSmoothingEnabled=false;
-        ctx.drawImage(props,frame*128,0,128,128,p.pos.x-34,p.pos.y-48,68,68);
+        ctx.drawImage(props,frame*128+3,3,122,122,p.pos.x-34,p.pos.y-48,68,68);
       }else{
         ctx.fillStyle=p.kind==='gold'?'#d8b45a':p.kind==='potion'?'#7fd97f':'#e8dcc8';
         ctx.beginPath(); ctx.arc(p.pos.x,p.pos.y,6,0,Math.PI*2); ctx.fill();
