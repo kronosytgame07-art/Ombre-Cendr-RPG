@@ -36,36 +36,41 @@ function decorAt(x,y,biome){
   const h = cellHash(x*7+3, y*13+5);
   const density = BIOME_DECOR_DENSITY[biome] ?? 15;
   if(h % 100 >= density) return null;
-  return h % 3;
+  return h % 4;
 }
 // Arbres imposants (nettement plus hauts/larges que le héros, comme dans un
 // vrai Diablo) : la canopée déborde volontairement sur les cases voisines,
 // dessinée avant elles car le rendu se fait ligne par ligne du haut vers le bas.
-function drawTree(ctx, style){
-  const scale = 1.9 + (style%3)*0.35;
+function drawTree(ctx, style, time=0, seed=0){
+  const atlas=getImageSync('assets/sprites/world/camp_environment_atlas.png');
+  if(!atlas) return;
+  const cell=4+(style%4), col=cell%4, row=Math.floor(cell/4);
+  const size=128+(style%3)*8;
+  const left=Math.round(-size/2), top=Math.round(-size+10);
   ctx.save();
-  ctx.scale(scale, scale);
-  ctx.globalAlpha = 0.28;
-  ctx.fillStyle = '#000';
-  ctx.beginPath(); ctx.ellipse(1,4,10,4,0,0,Math.PI*2); ctx.fill();
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = '#1c140e';
-  ctx.fillRect(-3,-6,6,14);
-  const canopy = style===1 ? '#243a1e' : (style===2 ? '#2e2015' : '#1e2e1a');
-  ctx.fillStyle = canopy;
-  ctx.beginPath(); ctx.moveTo(0,-36); ctx.lineTo(-14,-12); ctx.lineTo(14,-12); ctx.closePath(); ctx.fill();
-  ctx.beginPath(); ctx.moveTo(0,-26); ctx.lineTo(-11,-4); ctx.lineTo(11,-4); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = style===2 ? '#5a2e18' : '#3a2a14';
-  ctx.beginPath(); ctx.arc(-4,-20,1.6,0,Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(5,-14,1.4,0,Math.PI*2); ctx.fill();
+  ctx.imageSmoothingEnabled=false;
+  ctx.globalAlpha=0.30; ctx.fillStyle='#000';
+  ctx.beginPath(); ctx.ellipse(0,5,size*0.24,8,0,0,Math.PI*2); ctx.fill();
+  ctx.globalAlpha=1;
+  if(cell===4||cell===7){
+    const split=78, dstSplit=Math.round(size*split/128);
+    // Tronc/racines fixes.
+    ctx.drawImage(atlas,col*128,row*128+split,128,128-split,left,top+dstSplit,size,size-dstSplit);
+    // Couronne seule animée, par pas entiers pour rester pixel-perfect.
+    const sway=Math.round(Math.sin(time*1.15+seed)*2);
+    ctx.drawImage(atlas,col*128,row*128,128,split,left+sway,top,size,dstSplit);
+  }else{
+    // Les arbres calcinés sans feuilles ne se balancent pas.
+    ctx.drawImage(atlas,col*128,row*128,128,128,left,top,size,size);
+  }
   ctx.restore();
 }
-function drawFloorDecor(ctx, px, py, style, biome){
+function drawFloorDecor(ctx, px, py, style, biome, time=0){
   ctx.save();
   ctx.translate(px+TILE_SIZE*0.5, py+TILE_SIZE*0.7);
 
   if(biome==='foret_sol'){
-    drawTree(ctx, style);
+    drawTree(ctx, style, time, px*0.17+py*0.11);
     ctx.restore();
     return;
   }
@@ -624,7 +629,7 @@ export class Game{
         ctx.drawImage(variants[idx], x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE, TILE_SIZE);
         if(walkable){
           const decor = decorAt(x,y,this.zone.floorTile);
-          if(decor!=null) drawFloorDecor(ctx, x*TILE_SIZE, y*TILE_SIZE, decor, this.zone.floorTile);
+          if(decor!=null) drawFloorDecor(ctx, x*TILE_SIZE, y*TILE_SIZE, decor, this.zone.floorTile, this.time);
         }
       }
     }
