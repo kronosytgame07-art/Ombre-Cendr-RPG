@@ -11,7 +11,7 @@ import { renderInventory, renderSkillTree, renderCodex, renderWorldMap, renderSh
 import { setDifficulty } from './engine/difficulty.js';
 import { setVolumes, unlockAudio, startMusic, playSfx } from './engine/audio.js';
 
-const HERO_IMAGE_PATHS = [...CLASSES.flatMap(c=>[c.sprite, c.sheet].filter(Boolean)), 'assets/sprites/items/equipment_atlas.png'];
+const HERO_IMAGE_PATHS = [...CLASSES.flatMap(c=>[c.sprite, c.sheet].filter(Boolean)), 'assets/sprites/items/equipment_atlas.png', 'assets/tiles/terrain_atlas.png'];
 
 let game = null;
 let currentSlot = null;
