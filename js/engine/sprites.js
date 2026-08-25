@@ -451,6 +451,20 @@ export function makeTile(kind, variant=0){
   if(cache.has(key)) return cache.get(key);
   const size=48;
   const {canvas,ctx}=newCanvas(size,size);
+  const terrainAtlas=getImageSync('assets/tiles/terrain_atlas.png');
+  const terrainOrder=['ash_ground','cendre_route','herbe_brulee','foret_sol','pierre','eau','marais','lave','neige','caverne','bois','maison','cobble','tapis','sable','faille'];
+  const terrainIndex=terrainOrder.indexOf(kind);
+  if(terrainAtlas && terrainIndex>=0){
+    const col=terrainIndex%4, row=Math.floor(terrainIndex/4);
+    ctx.imageSmoothingEnabled=false;
+    ctx.save();
+    if(variant%2===1){ ctx.translate(size,0); ctx.scale(-1,1); }
+    if(variant%4>=2){ ctx.translate(0,size); ctx.scale(1,-1); }
+    ctx.drawImage(terrainAtlas,col*128,row*128,128,128,0,0,size,size);
+    ctx.restore();
+    cache.set(key,canvas);
+    return canvas;
+  }
   const rnd = seededRand(hashStr(kind+variant));
   const palettes = {
     ash_ground: ['#2a221e','#332924','#241b17'],
